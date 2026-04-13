@@ -84,6 +84,105 @@ HCSS_PRIMARY = "#003082"
 HCSS_ACCENT = "#0066CC"
 HCSS_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"]
 
+# ── Policy event timeline ──────────────────────────────────────────────────────
+# 20 key Dutch–China policy moments, 2015–2022.
+# year_frac: fractional year used as x-position on integer-year axes.
+# period_Y / period_Q: string labels for yearly / quarterly period axes.
+POLICY_EVENTS = [
+    {"date": "2015-10-01", "year_frac": 2015.75, "period_Y": "2015", "period_Q": "2015Q4",
+     "label": "COSCO acquires Rotterdam Euromax terminal stake",
+     "category": "Trade & Economy", "short": "COSCO Rotterdam"},
+    {"date": "2016-06-01", "year_frac": 2016.42, "period_Y": "2016", "period_Q": "2016Q2",
+     "label": "First Dutch parliamentary motion on Uyghurs",
+     "category": "Human Rights", "short": "1st Uyghur motion"},
+    {"date": "2017-05-01", "year_frac": 2017.33, "period_Y": "2017", "period_Q": "2017Q2",
+     "label": "Belt and Road Forum — NL participation debate",
+     "category": "Diplomacy", "short": "BRI Forum"},
+    {"date": "2018-07-01", "year_frac": 2018.50, "period_Y": "2018", "period_Q": "2018Q3",
+     "label": "US–China trade war escalates (tariff round 2)",
+     "category": "Trade & Economy", "short": "Trade war"},
+    {"date": "2018-11-01", "year_frac": 2018.83, "period_Y": "2018", "period_Q": "2018Q4",
+     "label": "Dutch government starts Huawei 5G security review",
+     "category": "Technology", "short": "Huawei review"},
+    {"date": "2019-05-01", "year_frac": 2019.33, "period_Y": "2019", "period_Q": "2019Q2",
+     "label": "US blacklists Huawei — NL suppliers affected",
+     "category": "Technology", "short": "Huawei blacklist"},
+    {"date": "2019-10-01", "year_frac": 2019.75, "period_Y": "2019", "period_Q": "2019Q4",
+     "label": "Dutch parliament passes Xinjiang motion",
+     "category": "Human Rights", "short": "Xinjiang motion"},
+    {"date": "2020-01-23", "year_frac": 2020.06, "period_Y": "2020", "period_Q": "2020Q1",
+     "label": "Wuhan lockdown — COVID-19 enters Dutch debate",
+     "category": "Security", "short": "COVID / Wuhan"},
+    {"date": "2020-03-28", "year_frac": 2020.24, "period_Y": "2020", "period_Q": "2020Q1",
+     "label": "NL recalls defective Chinese face masks",
+     "category": "Trade & Economy", "short": "Mask recall"},
+    {"date": "2020-07-09", "year_frac": 2020.52, "period_Y": "2020", "period_Q": "2020Q3",
+     "label": "NL ends extradition treaty with Hong Kong",
+     "category": "Diplomacy", "short": "HK extradition ends"},
+    {"date": "2020-10-15", "year_frac": 2020.79, "period_Y": "2020", "period_Q": "2020Q4",
+     "label": "ASML export licence to China restricted (US pressure)",
+     "category": "Technology", "short": "ASML export limit"},
+    {"date": "2021-02-25", "year_frac": 2021.15, "period_Y": "2021", "period_Q": "2021Q1",
+     "label": "Dutch parliament adopts Uyghur 'genocide' motion",
+     "category": "Human Rights", "short": "Genocide motion"},
+    {"date": "2021-03-22", "year_frac": 2021.22, "period_Y": "2021", "period_Q": "2021Q1",
+     "label": "EU–China mutual sanctions (MEPs, scholars)",
+     "category": "Diplomacy", "short": "EU–China sanctions"},
+    {"date": "2021-05-01", "year_frac": 2021.33, "period_Y": "2021", "period_Q": "2021Q2",
+     "label": "KPN chooses Ericsson over Huawei for 5G core",
+     "category": "Technology", "short": "KPN Huawei out"},
+    {"date": "2021-09-15", "year_frac": 2021.70, "period_Y": "2021", "period_Q": "2021Q3",
+     "label": "Dutch parliament Taiwan solidarity motion",
+     "category": "Security", "short": "Taiwan motion"},
+    {"date": "2021-11-01", "year_frac": 2021.83, "period_Y": "2021", "period_Q": "2021Q4",
+     "label": "ASML banned from shipping EUV machines to China",
+     "category": "Technology", "short": "ASML EUV ban"},
+    {"date": "2022-01-01", "year_frac": 2022.00, "period_Y": "2022", "period_Q": "2022Q1",
+     "label": "NL tightens FDI screening — China acquisitions scrutinised",
+     "category": "Trade & Economy", "short": "FDI screening"},
+    {"date": "2022-02-24", "year_frac": 2022.15, "period_Y": "2022", "period_Q": "2022Q1",
+     "label": "Russia invades Ukraine — China neutrality debated",
+     "category": "Security", "short": "Russia–Ukraine / China"},
+    {"date": "2022-06-01", "year_frac": 2022.42, "period_Y": "2022", "period_Q": "2022Q2",
+     "label": "Dutch parliament debates semiconductor export controls",
+     "category": "Technology", "short": "Chip export debate"},
+    {"date": "2022-09-01", "year_frac": 2022.67, "period_Y": "2022", "period_Q": "2022Q3",
+     "label": "Cabinet announces further ASML export restrictions",
+     "category": "Technology", "short": "ASML further limits"},
+]
+
+POLICY_EVENT_COLORS = {
+    "Human Rights":  "#C0392B",
+    "Trade & Economy": "#E67E22",
+    "Technology":    "#2980B9",
+    "Security":      "#8E44AD",
+    "Diplomacy":     "#27AE60",
+}
+
+
+def add_policy_lines(fig, x_type: str = "year", events=None, selected=None):
+    """
+    Inject vertical marker lines for policy events onto a Plotly figure.
+    x_type: 'year' (int axis), 'period_Y' (string yearly), 'period_Q' (string quarterly).
+    selected: list of event short labels to show; None = show all.
+    """
+    if events is None:
+        events = POLICY_EVENTS
+    for ev in events:
+        if selected and ev["short"] not in selected:
+            continue
+        x_val = ev.get(x_type, ev["year_frac"])
+        color = POLICY_EVENT_COLORS.get(ev["category"], "#888888")
+        fig.add_vline(
+            x=x_val,
+            line_dash="dot", line_width=1.2, line_color=color,
+            annotation_text=ev["short"],
+            annotation_position="top left",
+            annotation_font=dict(size=8, color=color),
+            annotation_textangle=-90,
+        )
+    return fig
+
 # ── Sentiment label mapping (shorthand → plain English) ───────────────────────
 SENTIMENT_LABELS = {
     "negneg": "Very Negative",
@@ -407,8 +506,17 @@ if page == "Overview":
         labels={"period": "", "china_speeches": "Speeches mentioning China"},
         color_discrete_sequence=[HCSS_PRIMARY],
     )
-    fig.update_layout(showlegend=False, margin=dict(t=10))
+    fig.update_layout(showlegend=False, margin=dict(t=40, b=10))
+    add_policy_lines(fig, x_type="period_Y")
     st.plotly_chart(fig, use_container_width=True)
+    with st.expander("Policy milestones shown"):
+        for cat, color in POLICY_EVENT_COLORS.items():
+            evs = [e["short"] for e in POLICY_EVENTS if e["category"] == cat]
+            if evs:
+                st.markdown(
+                    f"<span style='color:{color}'>●</span> **{cat}:** {', '.join(evs)}",
+                    unsafe_allow_html=True,
+                )
 
     st.divider()
 
@@ -590,6 +698,7 @@ elif page == "Party & Sentiment Trends":
             "Computed only from sentences that explicitly mention China (scale 0–5, below 2.5 = negative). "
             "Only party-years with at least 1 scored speech are shown."
         )
+        show_events_sent = st.checkbox("Show policy milestones", value=True, key="ev_sent")
         sent_trend = an.party_sentiment_trend(df, parties=selected_parties)
         if sent_trend.empty:
             st.warning("No sentiment data for the selected parties under current filters.")
@@ -606,16 +715,19 @@ elif page == "Party & Sentiment Trends":
             )
             fig.add_hline(y=2.5, line_dash="dot", line_color="lightgrey",
                           annotation_text="Neutral")
+            if show_events_sent:
+                add_policy_lines(fig, x_type="year_frac")
             fig.update_layout(
                 yaxis=dict(range=[0, 5]),
-                height=460,
+                height=500,
+                margin=dict(t=50),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02,
                             xanchor="center", x=0.5),
             )
             st.plotly_chart(fig, use_container_width=True)
             st.caption(
                 "A downward trend = increasingly negative framing of China. "
-                "The 2019–2020 dip across most parties aligns with Xinjiang coverage and the Huawei 5G debate."
+                "Dotted vertical lines = key Dutch–China policy moments (toggle above)."
             )
 
     # ── Tab 2: Mention volume ──────────────────────────────────────────────────
@@ -634,6 +746,7 @@ elif page == "Party & Sentiment Trends":
         vol_trend = an.china_trend_by_party(
             df, freq=freq_map_vol[freq_label], parties=selected_parties
         )
+        show_events_vol = st.checkbox("Show policy milestones", value=True, key="ev_vol")
         if vol_trend.empty:
             st.warning("No data for selected parties.")
         else:
@@ -649,8 +762,12 @@ elif page == "Party & Sentiment Trends":
                 color_discrete_map=color_map,
                 labels={"period": "", "party": "Party", y_col: y_label},
             )
+            if show_events_vol:
+                x_type_vol = "period_Y" if freq_label == "Year" else "period_Q"
+                add_policy_lines(fig, x_type=x_type_vol)
             fig.update_layout(
-                height=440,
+                height=480,
+                margin=dict(t=50),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02,
                             xanchor="center", x=0.5),
             )
@@ -1136,6 +1253,7 @@ elif page == "Great power context":
             "US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
             "EU": HCSS_ACCENT, "NATO": "#1A1A1A",
         }
+        show_events_gp = st.checkbox("Show policy milestones", value=True, key="ev_gp")
         if gp_ymode == "Co-occurrence frequency (%)":
             st.caption(
                 "% of China-mentioning speeches that year which also mention each power."
@@ -1149,6 +1267,9 @@ elif page == "Great power context":
                             "year": "Year", "power": "Power"},
                     color_discrete_map=POWER_COLOR_MAP,
                 )
+                if show_events_gp:
+                    add_policy_lines(fig, x_type="year_frac")
+                fig.update_layout(height=460, margin=dict(t=50))
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.caption(
@@ -1156,9 +1277,7 @@ elif page == "Great power context":
                 "China *and* each power. Below 2.5 = negative tone toward China."
             )
             ptrend = an.power_sentiment_trend(df)
-            # Only keep the "China + X" rows (not overall) for the line chart
             ptrend_lines = ptrend[ptrend["power"] != "China (overall)"].copy()
-            # Remap power names to match co-occurrence labels
             ptrend_lines["power_short"] = ptrend_lines["power"].str.replace("China + ", "", regex=False)
             if not ptrend_lines.empty:
                 fig = px.line(
@@ -1174,7 +1293,9 @@ elif page == "Great power context":
                 )
                 fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
                               annotation_text="Neutral")
-                fig.update_layout(yaxis=dict(range=[0, 5]))
+                if show_events_gp:
+                    add_policy_lines(fig, x_type="year_frac")
+                fig.update_layout(yaxis=dict(range=[0, 5]), height=460, margin=dict(t=50))
                 st.plotly_chart(fig, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1413,6 +1534,7 @@ elif page == "Policy & Geopolitics":
 
     with tab_time:
         st.subheader("How has each topic's prominence shifted over time?")
+        show_events_pol = st.checkbox("Show policy milestones", value=True, key="ev_pol")
         if not topic_df.empty:
             fig = px.line(
                 topic_df, x="year", y="n_speeches", color="topic",
@@ -1420,6 +1542,9 @@ elif page == "Policy & Geopolitics":
                 labels={"n_speeches": "Speeches", "year": "Year", "topic": "Topic"},
                 color_discrete_sequence=HCSS_PALETTE + ["#C0392B", "#27AE60"],
             )
+            if show_events_pol:
+                add_policy_lines(fig, x_type="year_frac")
+            fig.update_layout(height=460, margin=dict(t=50))
             st.plotly_chart(fig, use_container_width=True)
 
             st.subheader("Sentiment per topic over time")
@@ -1434,7 +1559,12 @@ elif page == "Policy & Geopolitics":
                 )
                 fig2.add_hline(y=2.5, line_dash="dot", line_color="grey",
                                annotation_text="Neutral")
-                fig2.update_layout(showlegend=False, coloraxis_showscale=False)
+                if show_events_pol:
+                    add_policy_lines(fig2, x_type="year_frac")
+                fig2.update_layout(
+                    showlegend=False, coloraxis_showscale=False,
+                    height=380, margin=dict(t=50),
+                )
                 st.plotly_chart(fig2, use_container_width=True)
 
     with tab_ai:
@@ -1471,92 +1601,137 @@ elif page == "Policy & Geopolitics":
                 "with actionable geopolitical insight."
             )
         else:
-            # ── Controls ───────────────────────────────────────────────────────
-            col_t, col_y = st.columns(2)
-            with col_t:
-                ai_topic = st.selectbox("Topic", list(POLICY_TOPICS.keys()), key="ai_topic")
-            with col_y:
-                ai_year = st.selectbox(
-                    "Year", sorted(df["year"].unique().tolist(), reverse=True), key="ai_year"
-                )
-
+            # ── Analysis mode ──────────────────────────────────────────────────
             analysis_mode = st.radio(
                 "Analysis mode",
-                ["Full parliament", "Single party", "Compare parties"],
+                ["Topic × Year", "Policy event deep-dive",
+                 "Single party", "Compare parties"],
                 horizontal=True,
                 key="ai_mode",
                 help=(
-                    "**Full parliament** — dominant framing across all parties.  "
-                    "**Single party** — deep-dive into one party's stance.  "
-                    "**Compare parties** — Claude contrasts 2–4 parties on this topic."
+                    "**Topic × Year** — dominant framing across all parties for a topic+year.  "
+                    "**Policy event deep-dive** — pick a milestone; Claude analyses what "
+                    "parliament was debating in the ±6 months around that event.  "
+                    "**Single party** — one party's stance on a topic.  "
+                    "**Compare parties** — Claude contrasts 2–4 parties."
                 ),
             )
 
-            # ── Party selector (conditional) ───────────────────────────────────
-            keywords = POLICY_TOPICS[ai_topic]
+            # ── Controls (conditional on mode) ────────────────────────────────
+            col_t, col_y = st.columns(2)
+            if analysis_mode == "Policy event deep-dive":
+                event_labels = [f"{e['short']} ({e['date'][:4]})" for e in POLICY_EVENTS]
+                with col_t:
+                    sel_event_label = st.selectbox("Policy event", event_labels, key="ai_event")
+                sel_event = POLICY_EVENTS[event_labels.index(sel_event_label)]
+                ai_topic = None
+                ai_year = int(sel_event["date"][:4])
+                with col_y:
+                    st.markdown(
+                        f"**{sel_event['label']}**  \n"
+                        f"*{sel_event['date']} · {sel_event['category']}*"
+                    )
+            else:
+                with col_t:
+                    ai_topic = st.selectbox("Topic", list(POLICY_TOPICS.keys()), key="ai_topic")
+                with col_y:
+                    ai_year = st.selectbox(
+                        "Year", sorted(df["year"].unique().tolist(), reverse=True), key="ai_year"
+                    )
+
+            # ── Build pool + party selector (mode-dependent) ──────────────────
             china_filtered = df[df["china_mentions"] > 0].copy()
-            topic_mask = china_filtered["text"].str.lower().str.contains(
-                "|".join(keywords), regex=True, na=False
-            )
-            pool = china_filtered[topic_mask & (china_filtered["year"] == ai_year)]
-            available_parties = sorted(pool["party"].dropna().unique().tolist())
-
             selected_parties = []
-            if analysis_mode == "Single party":
-                if available_parties:
-                    sel_party_ai = st.selectbox(
-                        "Select party", available_parties, key="ai_party_single"
-                    )
-                    selected_parties = [sel_party_ai]
-                else:
-                    st.warning("No speeches found for this topic and year.")
-            elif analysis_mode == "Compare parties":
-                if len(available_parties) >= 2:
-                    selected_parties = st.multiselect(
-                        "Select parties to compare (2–4 recommended)",
-                        available_parties,
-                        default=available_parties[:3] if len(available_parties) >= 3 else available_parties[:2],
-                        max_selections=4,
-                        key="ai_party_multi",
-                    )
-                    if len(selected_parties) < 2:
-                        st.caption("Select at least 2 parties to enable comparison.")
-                else:
-                    st.warning("Not enough parties with speeches for this topic and year.")
 
-            # ── Generate ───────────────────────────────────────────────────────
-            can_generate = (
-                analysis_mode == "Full parliament"
-                or (analysis_mode == "Single party" and len(selected_parties) == 1)
-                or (analysis_mode == "Compare parties" and len(selected_parties) >= 2)
-            )
+            if analysis_mode == "Policy event deep-dive":
+                # Window: ±6 months around the event date
+                ev_date = pd.to_datetime(sel_event["date"])
+                pool = china_filtered[
+                    (china_filtered["date"] >= ev_date - pd.DateOffset(months=6)) &
+                    (china_filtered["date"] <= ev_date + pd.DateOffset(months=6))
+                ]
+                can_generate = not pool.empty
+                if pool.empty:
+                    st.warning("No China speeches found in the ±6 month window around this event.")
+            else:
+                keywords = POLICY_TOPICS[ai_topic]
+                topic_mask = china_filtered["text"].str.lower().str.contains(
+                    "|".join(keywords), regex=True, na=False
+                )
+                pool = china_filtered[topic_mask & (china_filtered["year"] == ai_year)]
+                available_parties = sorted(pool["party"].dropna().unique().tolist())
+
+                if analysis_mode == "Single party":
+                    if available_parties:
+                        sel_party_ai = st.selectbox(
+                            "Select party", available_parties, key="ai_party_single"
+                        )
+                        selected_parties = [sel_party_ai]
+                    else:
+                        st.warning("No speeches found for this topic and year.")
+                elif analysis_mode == "Compare parties":
+                    if len(available_parties) >= 2:
+                        selected_parties = st.multiselect(
+                            "Select parties to compare (2–4 recommended)",
+                            available_parties,
+                            default=available_parties[:3] if len(available_parties) >= 3 else available_parties[:2],
+                            max_selections=4,
+                            key="ai_party_multi",
+                        )
+                        if len(selected_parties) < 2:
+                            st.caption("Select at least 2 parties to enable comparison.")
+                    else:
+                        st.warning("Not enough parties with speeches for this topic and year.")
+
+                can_generate = (
+                    analysis_mode == "Topic × Year"
+                    or (analysis_mode == "Single party" and len(selected_parties) == 1)
+                    or (analysis_mode == "Compare parties" and len(selected_parties) >= 2)
+                )
 
             if st.button("Generate narrative", type="primary", disabled=not can_generate):
                 # Build sample based on mode
-                if analysis_mode == "Full parliament":
+                if analysis_mode == "Policy event deep-dive":
+                    sample = pool.sort_values("date").head(30)
+                elif analysis_mode == "Topic × Year":
                     sample = pool.sort_values("china_sentiment_avg").head(25)
                 elif analysis_mode == "Single party":
                     sample = pool[pool["party"] == selected_parties[0]].head(25)
                 else:  # Compare parties
-                    parts = [
-                        pool[pool["party"] == p].head(10)
-                        for p in selected_parties
-                    ]
-                    sample = pd.concat(parts)
+                    sample = pd.concat([
+                        pool[pool["party"] == p].head(10) for p in selected_parties
+                    ])
 
                 if sample.empty:
                     st.warning("No speeches match this combination.")
                 else:
                     context_lines = []
                     for _, row in sample.iterrows():
-                        party = row["party"]
                         snippet = row["text"][:300].replace("\n", " ")
                         context_lines.append(
-                            f"[{str(row['date'])[:10]} | {row['speaker_name']} | {party}] {snippet}"
+                            f"[{str(row['date'])[:10]} | {row['speaker_name']} | {row['party']}] {snippet}"
                         )
                     context = "\n\n".join(context_lines)
 
-                    if analysis_mode == "Full parliament":
+                    if analysis_mode == "Policy event deep-dive":
+                        prompt = (
+                            f"You are a political analyst studying Dutch parliamentary debate on China.\n\n"
+                            f"The policy event you are analysing: **{sel_event['label']}** "
+                            f"(date: {sel_event['date']}, category: {sel_event['category']}).\n\n"
+                            f"Below are {len(sample)} speech excerpts from the Dutch parliament in the "
+                            f"6 months before and after this event. Each starts with [date | speaker | party].\n\n"
+                            f"{context}\n\n"
+                            f"Write a policy briefing (4 paragraphs) that:\n"
+                            f"1. Describes the parliamentary debate leading up to this event — "
+                            f"what were the key concerns and which parties were most vocal?\n"
+                            f"2. Analyses how the event appears to have shifted the debate — "
+                            f"did it confirm fears, trigger new arguments, or pass unnoticed?\n"
+                            f"3. Identifies the most notable individual contributions — cite speakers by name\n"
+                            f"4. Draws one strategic insight: does Dutch parliament *react* to events like this, "
+                            f"or do the debates *precede* them?\n\n"
+                            f"Write for a senior policy audience. Be specific, analytical, avoid vague generalities."
+                        )
+                    elif analysis_mode == "Topic × Year":
                         prompt = (
                             f"You are analysing Dutch parliamentary speeches about China "
                             f"from {ai_year}, focused on the topic of '{ai_topic}'.\n\n"
@@ -1607,12 +1782,19 @@ elif page == "Policy & Geopolitics":
                     narrative = call_claude(prompt, _api_key)
                     st.markdown("---")
                     st.markdown(narrative)
-                    mode_label = {
-                        "Full parliament": "Full parliament",
-                        "Single party": selected_parties[0],
-                        "Compare parties": " vs ".join(selected_parties),
-                    }[analysis_mode]
+                    if analysis_mode == "Policy event deep-dive":
+                        mode_label = sel_event["short"]
+                        topic_label = f"±6 months around {sel_event['date']}"
+                    elif analysis_mode == "Single party":
+                        mode_label = selected_parties[0]
+                        topic_label = f"{ai_topic} · {ai_year}"
+                    elif analysis_mode == "Compare parties":
+                        mode_label = " vs ".join(selected_parties)
+                        topic_label = f"{ai_topic} · {ai_year}"
+                    else:
+                        mode_label = "Full parliament"
+                        topic_label = f"{ai_topic} · {ai_year}"
                     st.caption(
                         f"Generated by Claude Haiku · {len(sample)} speeches · "
-                        f"{ai_topic} · {ai_year} · {mode_label} · Cached 1 hour"
+                        f"{topic_label} · {mode_label} · Cached 1 hour"
                     )
