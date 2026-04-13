@@ -56,6 +56,29 @@ HCSS_PRIMARY = "#003082"
 HCSS_ACCENT = "#0066CC"
 HCSS_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"]
 
+# ── Sentiment label mapping (shorthand → plain English) ───────────────────────
+SENTIMENT_LABELS = {
+    "negneg": "Very Negative",
+    "mixneg": "Mixed Negative",
+    "neuneg": "Neutral–Negative",
+    "neupos": "Neutral–Positive",
+    "mixpos": "Mixed Positive",
+    "pospos": "Very Positive",
+}
+SENTIMENT_ORDER = ["Very Negative", "Mixed Negative", "Neutral–Negative",
+                   "Neutral–Positive", "Mixed Positive", "Very Positive"]
+
+def score_to_label(score) -> str:
+    """Convert numeric sentiment score (0–5) to plain English label."""
+    if pd.isna(score):
+        return "No data"
+    if score < 1.0:   return "Very Negative"
+    if score < 1.8:   return "Negative"
+    if score < 2.5:   return "Neutral–Negative"
+    if score < 3.2:   return "Neutral–Positive"
+    if score < 4.2:   return "Positive"
+    return "Very Positive"
+
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="China in Dutch Parliament",
@@ -347,29 +370,61 @@ elif page == "Party comparison":
 
     by_party = an.china_by_party(df, top_n=50)
 
-    tab1, tab2, tab3 = st.tabs(["Total speeches", "Normalised rate (%)", "Parliament seats"])
+    # Enrich with avg China sentiment per party for hover
+    sent_per_party = (
+        df[df["china_sentiment_avg"].notna() & (df["china_mentions"] > 0)]
+        .groupby("party")["china_sentiment_avg"].mean().round(3)
+        .rename("avg_china_sentiment")
+    )
+    by_party = by_party.merge(sent_per_party, on="party", how="left")
+    by_party["sentiment_label"] = by_party["avg_china_sentiment"].apply(score_to_label)
+
+    tab2, tab3 = st.tabs(["Normalised rate (%)", "Parliament seats"])
     st.caption(
         "**Normalised rate** = % of that party's *own* speeches that mention China. "
-        "It corrects for the fact that some parties simply speak more often than others. "
-        "It does **not** weight by parliamentary seats or speaking time."
+        "It corrects for the fact that some parties simply speak more often than others."
     )
 
-    with tab1:
-        fig = px.bar(
-            by_party.sort_values("china_speeches"),
-            x="china_speeches", y="party", orientation="h",
-            labels={"china_speeches": "Speeches mentioning China", "party": ""},
-            color_discrete_sequence=[HCSS_PRIMARY],
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
     with tab2:
-        fig = px.bar(
-            by_party.sort_values("rate"),
-            x="rate", y="party", orientation="h",
-            labels={"rate": "% of party's speeches mentioning China", "party": ""},
-            color_discrete_sequence=[HCSS_ACCENT],
+        sent_view = st.radio(
+            "Sort by",
+            ["China mention rate", "Sentiment (most negative first)"],
+            horizontal=True, key="party_sort",
         )
+        if sent_view == "Sentiment (most negative first)":
+            plot_df = by_party.dropna(subset=["avg_china_sentiment"]).sort_values("avg_china_sentiment")
+            st.caption(
+                "⚠️ In this view, **left = most negative sentiment toward China**, "
+                "right = most positive. This is *not* a political left/right ordering."
+            )
+            fig = px.bar(
+                plot_df,
+                x="party", y="avg_china_sentiment",
+                color="avg_china_sentiment",
+                color_continuous_scale="RdYlGn",
+                range_color=[0, 5],
+                labels={"avg_china_sentiment": "Avg. China sentiment (0–5)", "party": ""},
+                hover_data={"rate": ":.1f", "china_speeches": True, "sentiment_label": True},
+                text="sentiment_label",
+            )
+            fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral")
+            fig.update_traces(textposition="outside", textfont=dict(size=9))
+            fig.update_layout(showlegend=False, coloraxis_showscale=False)
+        else:
+            plot_df = by_party.sort_values("rate")
+            fig = px.bar(
+                plot_df,
+                x="rate", y="party", orientation="h",
+                color="avg_china_sentiment",
+                color_continuous_scale="RdYlGn",
+                range_color=[0, 5],
+                labels={"rate": "% of party's speeches mentioning China",
+                        "party": "", "avg_china_sentiment": "Avg. sentiment"},
+                hover_data={"china_speeches": True, "total_speeches": True,
+                            "sentiment_label": True, "avg_china_sentiment": ":.2f"},
+            )
+            fig.update_layout(coloraxis_colorbar=dict(title="Sentiment"))
         st.plotly_chart(fig, use_container_width=True)
 
     with tab3:
@@ -385,14 +440,12 @@ elif page == "Party comparison":
         if seats.empty:
             st.warning("No seat data available for this filter.")
         else:
-            # Election period label
             period = seats["period_label"].iloc[0]
             st.caption(
-                f"**Composition**: {period} election period — seats coloured by political spectrum. "
-                f"Click a party's dot to see its China sentiment profile."
+                f"**Composition**: {period} election period — each dot is one seat, "
+                f"coloured by party. Select a party below to highlight it."
             )
 
-            # Party selector for click interaction
             all_parties = sorted(seats["party"].unique().tolist())
             selected_party = st.selectbox(
                 "Select a party to inspect",
@@ -400,96 +453,31 @@ elif page == "Party comparison":
                 index=0,
             )
 
-            # Build color map: spectrum colour for all, highlighted for selected
             n_rows = 6 if chamber_key == "tweedekamer" else 4
             coords = horseshoe_coords(len(seats), n_rows=n_rows)
             seats = seats.assign(x=[c[0] for c in coords], y=[c[1] for c in coords])
-
-            # Color: selected party gets its party colour; others use spectrum+dimmed
-            colors = []
-            for _, row in seats.iterrows():
-                if selected_party != "— select a party —" and row["party"] == selected_party:
-                    colors.append(SPECTRUM_PARTY_COLORS.get(row["party"], SPEC_DEFAULT))
-                else:
-                    colors.append(SPECTRUM_COLORS.get(row["spectrum"], SPEC_DEFAULT))
-
-            seats["dot_color"] = colors
-            seats["highlighted"] = (seats["party"] == selected_party) if selected_party != "— select a party —" else False
-
-            fig = px.scatter(
-                seats,
-                x="x", y="y",
-                color="spectrum",
-                color_discrete_map=SPECTRUM_COLORS,
-                hover_data={
-                    "party": True,
-                    "rate": ":.1f",
-                    "china_speeches": True,
-                    "total_speeches": True,
-                    "mean_china_sentiment": ":.2f",
-                    "sentiment_n": True,
-                    "x": False, "y": False, "spectrum": False, "dot_color": False, "highlighted": False,
-                },
-                labels={
-                    "rate": "China mention %",
-                    "china_speeches": "China speeches",
-                    "total_speeches": "Total speeches",
-                    "mean_china_sentiment": "Avg sentiment",
-                    "sentiment_n": "Sentiment speeches",
-                },
+            seats["highlighted"] = (
+                (seats["party"] == selected_party)
+                if selected_party != "— select a party —" else False
             )
 
-            # Apply per-point colours (spectrum colour, selected party overridden in hover)
-            for trace in fig.data:
-                trace.marker = dict(size=16, line=dict(width=0.8, color="white"))
-            for i, color in enumerate(colors):
-                fig.data[0].marker.color = None  # disable legend colour
-
-            # Full per-point colour override via scatter with custom colors
             fig2 = go.Figure()
-            # Draw by spectrum group so legend is clean
-            for spectrum, group in seats.groupby("spectrum"):
-                group_df = group
-                highlight = group_df["highlighted"]
-                # Non-highlighted dots first
-                non_hl = group_df[~highlight]
-                fig2.add_trace(go.Scatter(
-                    x=non_hl["x"], y=non_hl["y"],
-                    mode="markers",
-                    name=spectrum,
-                    marker=dict(
-                        size=16,
-                        color=SPECTRUM_COLORS.get(spectrum, SPEC_DEFAULT),
-                        line=dict(width=0.8, color="white"),
-                        opacity=0.85,
-                    ),
-                    customdata=non_hl[["party", "rate", "china_speeches", "total_speeches",
-                                       "mean_china_sentiment", "sentiment_n"]].values,
-                    hovertemplate=(
-                        "<b>%{customdata[0]}</b><br>"
-                        "China mention rate: %{customdata[1]:.1f}%<br>"
-                        "China speeches: %{customdata[2]}<br>"
-                        "Total speeches: %{customdata[3]}<br>"
-                        "Avg China sentiment: %{customdata[4]:.2f}<br>"
-                        "<extra></extra>"
-                    ),
-                    showlegend=True,
-                ))
-                # Highlighted dots on top
-                hl = group_df[highlight]
-                if len(hl) > 0:
+            for party, group in seats.groupby("party"):
+                highlight = group["highlighted"]
+                non_hl = group[~highlight]
+                hl = group[highlight]
+                party_color = SPECTRUM_PARTY_COLORS.get(party, SPEC_DEFAULT)
+
+                if len(non_hl):
+                    opacity = 0.3 if selected_party != "— select a party —" else 0.85
                     fig2.add_trace(go.Scatter(
-                        x=hl["x"], y=hl["y"],
-                        mode="markers",
-                        name=f"{spectrum} (selected)" if selected_party == "— select a party —" else hl["party"].iloc[0],
-                        marker=dict(
-                            size=20,
-                            color=SPECTRUM_PARTY_COLORS.get(hl["party"].iloc[0], SPEC_DEFAULT),
-                            line=dict(width=2, color="#222"),
-                            symbol="diamond",
-                        ),
-                        customdata=hl[["party", "rate", "china_speeches", "total_speeches",
-                                       "mean_china_sentiment", "sentiment_n"]].values,
+                        x=non_hl["x"], y=non_hl["y"],
+                        mode="markers", name=party,
+                        marker=dict(size=14, color=party_color,
+                                    line=dict(width=0.5, color="white"),
+                                    opacity=opacity),
+                        customdata=non_hl[["party", "rate", "china_speeches",
+                                           "total_speeches", "mean_china_sentiment"]].values,
                         hovertemplate=(
                             "<b>%{customdata[0]}</b><br>"
                             "China mention rate: %{customdata[1]:.1f}%<br>"
@@ -498,8 +486,26 @@ elif page == "Party comparison":
                             "Avg China sentiment: %{customdata[4]:.2f}<br>"
                             "<extra></extra>"
                         ),
-                        showlegend=selected_party != "— select a party —",
-                        legendgroup=spectrum,
+                        showlegend=True,
+                    ))
+                if len(hl):
+                    fig2.add_trace(go.Scatter(
+                        x=hl["x"], y=hl["y"],
+                        mode="markers", name=f"{party} ★",
+                        marker=dict(size=18, color=party_color,
+                                    line=dict(width=2, color="#222"),
+                                    symbol="diamond", opacity=1.0),
+                        customdata=hl[["party", "rate", "china_speeches",
+                                       "total_speeches", "mean_china_sentiment"]].values,
+                        hovertemplate=(
+                            "<b>%{customdata[0]}</b><br>"
+                            "China mention rate: %{customdata[1]:.1f}%<br>"
+                            "China speeches: %{customdata[2]}<br>"
+                            "Total speeches: %{customdata[3]}<br>"
+                            "Avg China sentiment: %{customdata[4]:.2f}<br>"
+                            "<extra></extra>"
+                        ),
+                        showlegend=True,
                     ))
 
             fig2.update_layout(
@@ -507,21 +513,13 @@ elif page == "Party comparison":
                 yaxis=dict(visible=False),
                 plot_bgcolor="white", height=500,
                 legend=dict(
-                    title="Political spectrum",
+                    title="Party",
                     orientation="h", yanchor="bottom", y=1.02,
                     xanchor="center", x=0.5,
+                    font=dict(size=10),
                 ),
             )
             st.plotly_chart(fig2, use_container_width=True)
-
-            # Spectrum colour legend
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown("🔴 **Left** — SP, PvdA, GL, PvdD, DENK, BIJ1, Volt, OSF")
-            with col2:
-                st.markdown("🟠 **Center** — D66, ChristenUnie, NSC")
-            with col3:
-                st.markdown("🔵 **Right** — VVD, CDA, PVV, FvD, SGP, JA21, 50PLUS, BBB")
 
             # Sentiment panel for selected party
             if selected_party != "— select a party —":
@@ -601,84 +599,124 @@ elif page == "Sentiment analysis":
     )
 
     tab1, tab_h, tab2, tab3 = st.tabs([
-        "Animated by year", "Party heatmap", "Left vs Right over time", "Distribution"
+        "Animated by year", "Sorted by sentiment", "Single party over time", "Distribution"
     ])
+
+    heatmap = an.sentiment_heatmap(df)
 
     with tab1:
         st.subheader("Watch each party's stance on China shift over time")
         st.caption(
-            "Press play (▶) or drag the slider. Bars below 2.5 = negative tone "
-            "toward China that year, above = positive."
+            "Press play (▶) or drag the year slider. "
+            "Grey bars = no data for that party that year. "
+            "Below 2.5 = negative tone toward China."
         )
-        heatmap = an.sentiment_heatmap(df)
         if not heatmap.empty:
-            anim_df = (
-                heatmap.reset_index()
-                .melt(id_vars="party", var_name="year", value_name="sentiment")
-                .dropna()
-            )
-            anim_df["year"] = anim_df["year"].astype(int).astype(str)
+            all_parties_h = sorted(heatmap.index.tolist())
+            all_years_h = sorted(heatmap.columns.tolist())
+            # Build complete grid including NaN → grey bar at 0
+            rows_anim = []
+            for yr in all_years_h:
+                for p in all_parties_h:
+                    val = heatmap.loc[p, yr] if p in heatmap.index and yr in heatmap.columns else float("nan")
+                    rows_anim.append({"year": str(int(yr)), "party": p,
+                                      "sentiment": val,
+                                      "has_data": not pd.isna(val)})
+            anim_df = pd.DataFrame(rows_anim)
+            anim_df["bar_val"] = anim_df["sentiment"].fillna(0)
+            anim_df["color_val"] = anim_df["sentiment"].fillna(-1)
             anim_df = anim_df.sort_values(["year", "party"])
+
             fig = px.bar(
-                anim_df, x="party", y="sentiment",
+                anim_df, x="party", y="bar_val",
                 animation_frame="year",
                 range_y=[0, 5],
-                color="sentiment",
-                color_continuous_scale="RdYlGn",
-                range_color=[0, 5],
-                labels={"sentiment": "China sentiment", "party": ""},
+                color="color_val",
+                color_continuous_scale=[[0, "#CCCCCC"], [0.001, "#CC0000"],
+                                         [0.5, "#FFFF00"], [1.0, "#00AA00"]],
+                range_color=[-1, 5],
+                labels={"bar_val": "China sentiment (0–5)", "party": ""},
+                hover_data={"has_data": True, "sentiment": ":.2f",
+                            "bar_val": False, "color_val": False},
             )
             fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
                           annotation_text="Neutral")
+            fig.update_layout(coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Not enough data with current filters.")
 
     with tab_h:
-        st.subheader("Mean China-specific sentiment per party per year")
-        st.caption("Scale: 0 = very negative, 5 = very positive | Blank = insufficient data")
-        heatmap = an.sentiment_heatmap(df)
+        st.subheader("Parties ranked by average China sentiment")
+        st.caption("Most negative on the left. Only parties with sufficient data shown.")
         if not heatmap.empty:
-            fig = px.imshow(
-                heatmap,
+            party_avg = heatmap.mean(axis=1).sort_values()
+            sorted_df = pd.DataFrame({
+                "party": party_avg.index,
+                "avg_sentiment": party_avg.values,
+            })
+            sorted_df["label"] = sorted_df["avg_sentiment"].apply(score_to_label)
+            fig = px.bar(
+                sorted_df,
+                x="party", y="avg_sentiment",
+                color="avg_sentiment",
                 color_continuous_scale="RdYlGn",
-                zmin=0, zmax=5,
-                aspect="auto",
-                labels={"color": "Sentiment score"},
+                range_color=[0, 5],
+                labels={"avg_sentiment": "Avg. China sentiment (0–5)", "party": ""},
+                hover_data={"label": True},
+                text="label",
             )
-            fig.update_layout(xaxis_title="Year", yaxis_title="Party")
+            fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral")
+            fig.update_traces(textposition="outside", textfont=dict(size=10))
+            fig.update_layout(showlegend=False, coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Not enough data with current filters.")
 
     with tab2:
-        st.subheader("Left vs Right China sentiment over time")
-        bloc_df = an.sentiment_by_bloc(df)
-        if not bloc_df.empty:
-            fig = px.line(
-                bloc_df, x="year", y="mean_china_sentiment",
-                color="bloc",
-                markers=True,
-                color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
-                labels={"mean_china_sentiment": "Mean China sentiment", "year": "Year"},
-            )
-            fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
-                          annotation_text="Neutral threshold")
-            st.plotly_chart(fig, use_container_width=True)
+        st.subheader("One party's China sentiment over time")
+        party_opts_sent = sorted(heatmap.index.tolist()) if not heatmap.empty else []
+        if party_opts_sent:
+            sel_party_sent = st.selectbox("Select party", party_opts_sent, key="sent_party")
+            party_row = heatmap.loc[sel_party_sent].dropna()
+            if not party_row.empty:
+                line_df = pd.DataFrame({
+                    "year": party_row.index.astype(int),
+                    "sentiment": party_row.values,
+                })
+                line_df["label"] = line_df["sentiment"].apply(score_to_label)
+                fig = px.line(
+                    line_df, x="year", y="sentiment",
+                    markers=True,
+                    labels={"sentiment": "Avg. China sentiment (0–5)", "year": "Year"},
+                    color_discrete_sequence=[HCSS_PRIMARY],
+                    hover_data={"label": True},
+                )
+                fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                              annotation_text="Neutral")
+                fig.update_layout(yaxis=dict(range=[0, 5]))
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("No sentiment data for this party.")
+        else:
+            st.warning("Not enough data with current filters.")
 
     with tab3:
         st.subheader("Distribution of sentiment labels")
         china_df = df[df["china_mentions"] > 0]
         dist = china_df["sentiment_label"].value_counts().reset_index()
         dist.columns = ["label", "count"]
-        order = ["negneg", "mixneg", "neuneg", "neupos", "mixpos", "pospos"]
-        dist["label"] = pd.Categorical(dist["label"], categories=order, ordered=True)
-        dist = dist.sort_values("label")
+        dist["label_full"] = dist["label"].map(SENTIMENT_LABELS).fillna(dist["label"])
+        dist["label_full"] = pd.Categorical(
+            dist["label_full"], categories=SENTIMENT_ORDER, ordered=True
+        )
+        dist = dist.sort_values("label_full")
         fig = px.bar(
-            dist, x="label", y="count",
-            color="label",
+            dist, x="label_full", y="count",
+            color="label_full",
             color_discrete_sequence=px.colors.diverging.RdYlGn,
-            labels={"label": "Sentiment", "count": "Number of speeches"},
+            labels={"label_full": "Sentiment", "count": "Number of speeches"},
         )
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
@@ -710,8 +748,10 @@ elif page == "Great power context":
         if combos.empty:
             st.warning("No combinations meet the threshold under current filters.")
         else:
+            combos_plot = combos.copy()
+            combos_plot["sentiment_label"] = combos_plot["mean_china_sentiment"].apply(score_to_label)
             fig = px.bar(
-                combos.sort_values("n_speeches"),
+                combos_plot.sort_values("n_speeches"),
                 x="n_speeches", y="combination", orientation="h",
                 color="mean_china_sentiment",
                 color_continuous_scale="RdYlGn",
@@ -720,8 +760,14 @@ elif page == "Great power context":
                         "combination": "",
                         "mean_china_sentiment": "China sentiment"},
                 hover_data={"mean_china_sentiment": ":.2f",
+                            "sentiment_label": True,
                             "mean_sentiment_avg": ":.2f"},
             )
+            fig.update_layout(coloraxis_colorbar=dict(
+                title="Sentiment",
+                tickvals=[0, 1.25, 2.5, 3.75, 5],
+                ticktext=["Very Negative", "Negative", "Neutral", "Positive", "Very Positive"],
+            ))
             st.plotly_chart(fig, use_container_width=True)
             with st.expander("Underlying numbers"):
                 st.dataframe(combos, use_container_width=True)
@@ -762,32 +808,52 @@ elif page == "Top speakers":
         )
         bubble_df = speakers.dropna(subset=["avg_china_sentiment", "china_pct"])
         if not bubble_df.empty:
-            # Label format: name + context badge if not plain MP
             ctx_badge = {"minister": " [Min.]", "head": " [Chair]",
                          "secretaryOfState": " [Sec.]", "deputyHead": " [Dep.]"}
+            ctx_weight = {"minister": 3.0, "head": 1.5,
+                          "secretaryOfState": 3.0, "deputyHead": 1.5}
             bubble_df = bubble_df.copy()
+            bubble_df["role_weight"] = bubble_df["speaker_context"].map(ctx_weight).fillna(1.0)
+            bubble_df["influence_score"] = (
+                bubble_df["total_china_mentions"] * bubble_df["role_weight"]
+            ).round(1)
             bubble_df["label"] = bubble_df.apply(
                 lambda r: r["speaker_name"] + ctx_badge.get(r.get("speaker_context", ""), ""),
                 axis=1,
             )
+            # Only label top-influence speakers to avoid clutter
+            median_infl = bubble_df["influence_score"].median()
+            bubble_df["show_label"] = bubble_df.apply(
+                lambda r: r["label"] if r["influence_score"] >= median_infl else "",
+                axis=1,
+            )
+            avg_china_pct = bubble_df["china_pct"].mean()
+
             fig = px.scatter(
                 bubble_df,
                 x="china_pct", y="avg_china_sentiment",
-                size="total_china_mentions", color="party",
-                text="label",
+                size="influence_score", color="party",
+                text="show_label",
                 hover_data={"china_speeches": True, "total_speeches": True,
                             "china_pct": ":.1f", "avg_china_sentiment": ":.2f",
-                            "label": False},
+                            "influence_score": ":.1f", "role_weight": ":.1f",
+                            "show_label": False},
                 labels={"china_pct": "% of speeches mentioning China",
-                        "avg_china_sentiment": "Avg. China sentiment",
-                        "party": "Party"},
-                size_max=45,
+                        "avg_china_sentiment": "Avg. China sentiment (0–5)",
+                        "party": "Party", "influence_score": "Influence score"},
+                size_max=50,
             )
             fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
                           annotation_text="Neutral sentiment")
-            fig.update_traces(textposition="top center",
-                              textfont=dict(size=10))
-            fig.update_layout(height=560)
+            fig.add_vline(x=avg_china_pct, line_dash="dot", line_color="lightgrey",
+                          annotation_text="Avg. China focus")
+            fig.update_traces(textposition="top center", textfont=dict(size=9))
+            fig.update_layout(height=580)
+            st.caption(
+                "**Bubble size** = influence score (China mentions × role weight: "
+                "Minister/Sec. of State = ×3, Chair = ×1.5, others = ×1). "
+                "Labels shown for above-median influence only."
+            )
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("No sentiment data available for current filters.")
@@ -832,9 +898,10 @@ elif page == "Top speakers":
             speeches = an.speaker_speeches(df, sel_speaker)
             st.caption(f"{len(speeches)} China-mentioning speeches — most recent first")
             for _, s in speeches.head(15).iterrows():
+                label_full = SENTIMENT_LABELS.get(s.get("sentiment_label", ""), s.get("sentiment_label", "—") or "—")
                 with st.expander(
                     f"{str(s['date'])[:10]}  ·  {s.get('topic','') or '—'}  ·  "
-                    f"sentiment: {s['sentiment_label'] or '—'}"
+                    f"{label_full}"
                 ):
                     # Pull first sentence mentioning China as quote
                     text = s["text"] or ""
