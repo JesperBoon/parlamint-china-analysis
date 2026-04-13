@@ -117,6 +117,7 @@ with st.sidebar:
             "Sentiment analysis",
             "Great power context",
             "Top speakers",
+            "Policy & Geopolitics",
             "Explore speeches",
         ],
         label_visibility="collapsed",
@@ -949,3 +950,188 @@ elif page == "Explore speeches":
         result[display_cols].sort_values("date", ascending=False).head(200),
         use_container_width=True,
     )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: Policy & Geopolitics
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Policy & Geopolitics":
+    st.title("Policy & Geopolitical Topics")
+    st.markdown(
+        "This is where the *story* lives. Below are the policy domains and geopolitical "
+        "themes that co-occur with China in Dutch parliamentary debate — broken down by "
+        "sentiment and over time. The AI analysis panel at the bottom uses Claude to "
+        "translate the patterns into plain-language insights."
+    )
+
+    # ── Topic definitions ──────────────────────────────────────────────────────
+    POLICY_TOPICS = {
+        "Human Rights": ["uyghur", "uighur", "xinjiang", "tibet", "falun gong",
+                         "human rights", "detention", "forced labour"],
+        "Trade & Economy": ["trade", "belt and road", "made in china", "export",
+                            "import", "economic", "investment", "renminbi"],
+        "Technology": ["huawei", "5g", "tiktok", "zte", "alibaba", "tencent",
+                       "bytedance", "semiconductor", "tech"],
+        "Security & Military": ["military", "security", "threat", "defence",
+                                 "south china sea", "taiwan", "pla", "nato"],
+        "Diplomacy": ["diplomat", "ambassador", "summit", "relations", "bilateral",
+                      "one china", "xi jinping", "beijing"],
+    }
+
+    @st.cache_data(show_spinner=False)
+    def build_topic_df(_df):
+        china = _df[_df["china_mentions"] > 0].copy()
+        rows = []
+        for topic, keywords in POLICY_TOPICS.items():
+            mask = china["text"].str.lower().str.contains(
+                "|".join(keywords), regex=True, na=False
+            )
+            subset = china[mask]
+            if subset.empty:
+                continue
+            for year, grp in subset.groupby("year"):
+                rows.append({
+                    "topic": topic,
+                    "year": year,
+                    "n_speeches": len(grp),
+                    "avg_sentiment": round(grp["china_sentiment_avg"].mean(), 3),
+                })
+        return pd.DataFrame(rows)
+
+    topic_df = build_topic_df(df)
+
+    tab_overview, tab_time, tab_ai = st.tabs([
+        "Topic breakdown", "Over time", "AI narrative"
+    ])
+
+    with tab_overview:
+        st.subheader("How much does each policy domain appear — and how negative?")
+        agg = topic_df.groupby("topic").agg(
+            total_speeches=("n_speeches", "sum"),
+            avg_sentiment=("avg_sentiment", "mean"),
+        ).reset_index()
+        agg["sentiment_label"] = agg["avg_sentiment"].apply(score_to_label)
+        fig = px.bar(
+            agg.sort_values("total_speeches"),
+            x="total_speeches", y="topic", orientation="h",
+            color="avg_sentiment",
+            color_continuous_scale="RdYlGn", range_color=[0, 5],
+            labels={"total_speeches": "Speeches", "topic": "",
+                    "avg_sentiment": "Avg sentiment"},
+            hover_data={"sentiment_label": True, "avg_sentiment": ":.2f"},
+            text="sentiment_label",
+        )
+        fig.update_traces(textposition="outside", textfont=dict(size=10))
+        fig.update_layout(showlegend=False, coloraxis_showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tab_time:
+        st.subheader("How has each topic's prominence shifted over time?")
+        if not topic_df.empty:
+            fig = px.line(
+                topic_df, x="year", y="n_speeches", color="topic",
+                markers=True,
+                labels={"n_speeches": "Speeches", "year": "Year", "topic": "Topic"},
+                color_discrete_sequence=HCSS_PALETTE + ["#C0392B", "#27AE60"],
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.subheader("Sentiment per topic over time")
+            topic_sel = st.selectbox("Select topic", list(POLICY_TOPICS.keys()))
+            t_df = topic_df[topic_df["topic"] == topic_sel].dropna(subset=["avg_sentiment"])
+            if not t_df.empty:
+                fig2 = px.bar(
+                    t_df, x="year", y="avg_sentiment",
+                    color="avg_sentiment",
+                    color_continuous_scale="RdYlGn", range_color=[0, 5],
+                    labels={"avg_sentiment": "Avg. China sentiment (0–5)", "year": ""},
+                )
+                fig2.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                               annotation_text="Neutral")
+                fig2.update_layout(showlegend=False, coloraxis_showscale=False)
+                st.plotly_chart(fig2, use_container_width=True)
+
+    with tab_ai:
+        st.subheader("AI narrative analysis")
+
+        # ── Try to load Anthropic ──────────────────────────────────────────────
+        try:
+            import anthropic
+            _api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        except Exception:
+            _api_key = ""
+
+        if not _api_key:
+            st.warning(
+                "No API key configured. To enable AI narratives:\n\n"
+                "1. Create `.streamlit/secrets.toml`\n"
+                "2. Add: `ANTHROPIC_API_KEY = \"sk-ant-...\"`\n"
+                "3. Restart Streamlit."
+            )
+            st.info(
+                "**What this panel does:** selects the most relevant speeches for a "
+                "chosen topic and year, sends them to Claude, and returns a plain-language "
+                "summary of the dominant political narrative — bridging sentiment data "
+                "with actionable geopolitical insight."
+            )
+        else:
+            col_t, col_y = st.columns(2)
+            with col_t:
+                ai_topic = st.selectbox("Topic", list(POLICY_TOPICS.keys()), key="ai_topic")
+            with col_y:
+                ai_year = st.selectbox("Year", sorted(df["year"].unique().tolist(), reverse=True), key="ai_year")
+
+            if st.button("Generate narrative", type="primary"):
+                keywords = POLICY_TOPICS[ai_topic]
+                china = df[df["china_mentions"] > 0].copy()
+                mask = china["text"].str.lower().str.contains(
+                    "|".join(keywords), regex=True, na=False
+                )
+                sample = (
+                    china[mask & (china["year"] == ai_year)]
+                    .sort_values("china_sentiment_avg")
+                    .head(25)
+                )
+
+                if sample.empty:
+                    st.warning("No speeches match this topic and year.")
+                else:
+                    context_lines = []
+                    for _, row in sample.iterrows():
+                        party = row["party"].replace("party.", "")
+                        snippet = row["text"][:300].replace("\n", " ")
+                        context_lines.append(
+                            f"[{str(row['date'])[:10]} | {row['speaker_name']} | {party}] {snippet}"
+                        )
+                    context = "\n\n".join(context_lines)
+
+                    prompt = (
+                        f"You are analysing Dutch parliamentary speeches about China "
+                        f"from {ai_year}, focused on the topic of '{ai_topic}'.\n\n"
+                        f"Below are {len(sample)} speech excerpts. Each starts with "
+                        f"[date | speaker | party].\n\n"
+                        f"{context}\n\n"
+                        f"Write a concise analytical narrative (3–4 paragraphs) that:\n"
+                        f"1. Describes the dominant political framing of China in relation to {ai_topic}\n"
+                        f"2. Notes which parties drive the tone and why\n"
+                        f"3. Highlights any notable shift, tension, or consensus\n"
+                        f"4. Ends with one sentence on the geopolitical implication for the Netherlands\n\n"
+                        f"Write for a policy audience. Be specific, cite parties, avoid vague generalities."
+                    )
+
+                    @st.cache_data(show_spinner="Generating narrative...", ttl=3600)
+                    def call_claude(prompt_text, key):
+                        client = anthropic.Anthropic(api_key=key)
+                        msg = client.messages.create(
+                            model="claude-haiku-4-5-20251001",
+                            max_tokens=600,
+                            messages=[{"role": "user", "content": prompt_text}],
+                        )
+                        return msg.content[0].text
+
+                    narrative = call_claude(prompt, _api_key)
+                    st.markdown("---")
+                    st.markdown(narrative)
+                    st.caption(
+                        f"Generated by Claude Haiku · {len(sample)} speeches · "
+                        f"{ai_topic} · {ai_year} · Results cached for 1 hour"
+                    )
