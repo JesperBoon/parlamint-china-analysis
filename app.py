@@ -1060,6 +1060,16 @@ elif page == "Policy & Geopolitics":
         except Exception:
             _api_key = ""
 
+        @st.cache_data(show_spinner="Generating narrative...", ttl=3600)
+        def call_claude(prompt_text, key):
+            client = anthropic.Anthropic(api_key=key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=700,
+                messages=[{"role": "user", "content": prompt_text}],
+            )
+            return msg.content[0].text
+
         if not _api_key:
             st.warning(
                 "No API key configured. To enable AI narratives:\n\n"
@@ -1074,64 +1084,148 @@ elif page == "Policy & Geopolitics":
                 "with actionable geopolitical insight."
             )
         else:
+            # ── Controls ───────────────────────────────────────────────────────
             col_t, col_y = st.columns(2)
             with col_t:
                 ai_topic = st.selectbox("Topic", list(POLICY_TOPICS.keys()), key="ai_topic")
             with col_y:
-                ai_year = st.selectbox("Year", sorted(df["year"].unique().tolist(), reverse=True), key="ai_year")
+                ai_year = st.selectbox(
+                    "Year", sorted(df["year"].unique().tolist(), reverse=True), key="ai_year"
+                )
 
-            if st.button("Generate narrative", type="primary"):
-                keywords = POLICY_TOPICS[ai_topic]
-                china = df[df["china_mentions"] > 0].copy()
-                mask = china["text"].str.lower().str.contains(
-                    "|".join(keywords), regex=True, na=False
-                )
-                sample = (
-                    china[mask & (china["year"] == ai_year)]
-                    .sort_values("china_sentiment_avg")
-                    .head(25)
-                )
+            analysis_mode = st.radio(
+                "Analysis mode",
+                ["Full parliament", "Single party", "Compare parties"],
+                horizontal=True,
+                key="ai_mode",
+                help=(
+                    "**Full parliament** — dominant framing across all parties.  "
+                    "**Single party** — deep-dive into one party's stance.  "
+                    "**Compare parties** — Claude contrasts 2–4 parties on this topic."
+                ),
+            )
+
+            # ── Party selector (conditional) ───────────────────────────────────
+            keywords = POLICY_TOPICS[ai_topic]
+            china_filtered = df[df["china_mentions"] > 0].copy()
+            topic_mask = china_filtered["text"].str.lower().str.contains(
+                "|".join(keywords), regex=True, na=False
+            )
+            pool = china_filtered[topic_mask & (china_filtered["year"] == ai_year)]
+            available_parties = sorted(pool["party"].dropna().unique().tolist())
+
+            selected_parties = []
+            if analysis_mode == "Single party":
+                if available_parties:
+                    sel_party_ai = st.selectbox(
+                        "Select party", available_parties, key="ai_party_single"
+                    )
+                    selected_parties = [sel_party_ai]
+                else:
+                    st.warning("No speeches found for this topic and year.")
+            elif analysis_mode == "Compare parties":
+                if len(available_parties) >= 2:
+                    selected_parties = st.multiselect(
+                        "Select parties to compare (2–4 recommended)",
+                        available_parties,
+                        default=available_parties[:3] if len(available_parties) >= 3 else available_parties[:2],
+                        max_selections=4,
+                        key="ai_party_multi",
+                    )
+                    if len(selected_parties) < 2:
+                        st.caption("Select at least 2 parties to enable comparison.")
+                else:
+                    st.warning("Not enough parties with speeches for this topic and year.")
+
+            # ── Generate ───────────────────────────────────────────────────────
+            can_generate = (
+                analysis_mode == "Full parliament"
+                or (analysis_mode == "Single party" and len(selected_parties) == 1)
+                or (analysis_mode == "Compare parties" and len(selected_parties) >= 2)
+            )
+
+            if st.button("Generate narrative", type="primary", disabled=not can_generate):
+                # Build sample based on mode
+                if analysis_mode == "Full parliament":
+                    sample = pool.sort_values("china_sentiment_avg").head(25)
+                elif analysis_mode == "Single party":
+                    sample = pool[pool["party"] == selected_parties[0]].head(25)
+                else:  # Compare parties
+                    parts = [
+                        pool[pool["party"] == p].head(10)
+                        for p in selected_parties
+                    ]
+                    sample = pd.concat(parts)
 
                 if sample.empty:
-                    st.warning("No speeches match this topic and year.")
+                    st.warning("No speeches match this combination.")
                 else:
                     context_lines = []
                     for _, row in sample.iterrows():
-                        party = row["party"].replace("party.", "")
+                        party = row["party"]
                         snippet = row["text"][:300].replace("\n", " ")
                         context_lines.append(
                             f"[{str(row['date'])[:10]} | {row['speaker_name']} | {party}] {snippet}"
                         )
                     context = "\n\n".join(context_lines)
 
-                    prompt = (
-                        f"You are analysing Dutch parliamentary speeches about China "
-                        f"from {ai_year}, focused on the topic of '{ai_topic}'.\n\n"
-                        f"Below are {len(sample)} speech excerpts. Each starts with "
-                        f"[date | speaker | party].\n\n"
-                        f"{context}\n\n"
-                        f"Write a concise analytical narrative (3–4 paragraphs) that:\n"
-                        f"1. Describes the dominant political framing of China in relation to {ai_topic}\n"
-                        f"2. Notes which parties drive the tone and why\n"
-                        f"3. Highlights any notable shift, tension, or consensus\n"
-                        f"4. Ends with one sentence on the geopolitical implication for the Netherlands\n\n"
-                        f"Write for a policy audience. Be specific, cite parties, avoid vague generalities."
-                    )
-
-                    @st.cache_data(show_spinner="Generating narrative...", ttl=3600)
-                    def call_claude(prompt_text, key):
-                        client = anthropic.Anthropic(api_key=key)
-                        msg = client.messages.create(
-                            model="claude-haiku-4-5-20251001",
-                            max_tokens=600,
-                            messages=[{"role": "user", "content": prompt_text}],
+                    if analysis_mode == "Full parliament":
+                        prompt = (
+                            f"You are analysing Dutch parliamentary speeches about China "
+                            f"from {ai_year}, focused on the topic of '{ai_topic}'.\n\n"
+                            f"Below are {len(sample)} speech excerpts. Each starts with "
+                            f"[date | speaker | party].\n\n"
+                            f"{context}\n\n"
+                            f"Write a concise analytical narrative (3–4 paragraphs) that:\n"
+                            f"1. Describes the dominant political framing of China on {ai_topic}\n"
+                            f"2. Notes which parties drive the tone and why\n"
+                            f"3. Highlights any notable shift, tension, or consensus\n"
+                            f"4. Ends with one sentence on the geopolitical implication for the Netherlands\n\n"
+                            f"Write for a policy audience. Be specific, cite parties, avoid vague generalities."
                         )
-                        return msg.content[0].text
+                    elif analysis_mode == "Single party":
+                        party_name = selected_parties[0]
+                        prompt = (
+                            f"You are analysing Dutch parliamentary speeches about China "
+                            f"from {ai_year}, focused on the topic of '{ai_topic}', "
+                            f"as debated by {party_name}.\n\n"
+                            f"Below are {len(sample)} speech excerpts from {party_name} members. "
+                            f"Each starts with [date | speaker | party].\n\n"
+                            f"{context}\n\n"
+                            f"Write a focused analytical profile (3 paragraphs) that:\n"
+                            f"1. Describes {party_name}'s specific framing of China on {ai_topic}\n"
+                            f"2. Identifies the key speakers and their argumentative angle\n"
+                            f"3. Assesses whether {party_name}'s position is ideologically consistent, "
+                            f"pragmatic, or reactive to events — and what this implies strategically\n\n"
+                            f"Write for a policy audience. Be specific, cite speakers by name."
+                        )
+                    else:  # Compare parties
+                        party_list = ", ".join(selected_parties)
+                        prompt = (
+                            f"You are analysing Dutch parliamentary speeches about China "
+                            f"from {ai_year}, focused on the topic of '{ai_topic}'. "
+                            f"Compare the positions of: {party_list}.\n\n"
+                            f"Below are speech excerpts from these parties (up to 10 per party). "
+                            f"Each starts with [date | speaker | party].\n\n"
+                            f"{context}\n\n"
+                            f"Write a comparative analytical narrative (4 paragraphs) that:\n"
+                            f"1. Summarises how each party frames China on {ai_topic} — similarities and differences\n"
+                            f"2. Identifies the sharpest point of disagreement between the parties\n"
+                            f"3. Notes any surprising agreement or unexpected alignment\n"
+                            f"4. Ends with what these differences reveal about Dutch political fault lines "
+                            f"on China policy in {ai_year}\n\n"
+                            f"Write for a policy audience. Cite parties and individual speakers by name."
+                        )
 
                     narrative = call_claude(prompt, _api_key)
                     st.markdown("---")
                     st.markdown(narrative)
+                    mode_label = {
+                        "Full parliament": "Full parliament",
+                        "Single party": selected_parties[0],
+                        "Compare parties": " vs ".join(selected_parties),
+                    }[analysis_mode]
                     st.caption(
                         f"Generated by Claude Haiku · {len(sample)} speeches · "
-                        f"{ai_topic} · {ai_year} · Results cached for 1 hour"
+                        f"{ai_topic} · {ai_year} · {mode_label} · Cached 1 hour"
                     )
