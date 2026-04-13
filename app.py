@@ -163,30 +163,133 @@ if page == "Overview":
             st.image(LOGO_PATH, use_container_width=True)
     with col_title:
         st.title("HCSS Tool — How China is discussed in the Dutch Parliament")
+
     st.markdown(
-        "This tool analyses **ParlaMint-NL** — a corpus of Dutch parliamentary "
-        "debates from 2015 to 2022 — through the lens of *China in a Changing "
-        "World Order*, an HCSS research pillar."
+        "Between 2014 and 2022, China went from a barely-mentioned trading partner "
+        "to one of the most contentious topics in Dutch politics. "
+        "This tool maps that shift — who drove it, how the tone changed, "
+        "and in what context China enters the debate."
     )
+    st.caption("Based on 593,961 speeches from ParlaMint-NL · Use the sidebar to explore each dimension in depth.")
     st.divider()
 
-    c1, c2, c3, c4 = st.columns(4)
+    # ── KPIs ──────────────────────────────────────────────────────────────────
     china_df = df[df["china_mentions"] > 0]
-    c1.metric("Total speeches", f"{len(df):,}")
-    c2.metric("China-mentioning speeches", f"{len(china_df):,}")
-    c3.metric("Unique speakers (China)", china_df["speaker_name"].nunique())
-    c4.metric("Years covered", f"{df['year'].min()}–{df['year'].max()}")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total speeches analysed", f"{len(df):,}")
+    c2.metric("Mention China", f"{len(china_df):,}", f"{len(china_df)/len(df)*100:.1f}% of all")
+    c3.metric("Unique speakers", china_df["speaker_name"].nunique())
+    c4.metric("Peak year", "2020", f"{china_df[china_df['year']==2020].shape[0]} speeches")
 
     st.divider()
-    st.subheader("China mentions per year")
+
+    # ── Chapter 1: The rise ────────────────────────────────────────────────────
+    st.subheader("1 · A topic that wouldn't stop growing")
+    st.markdown(
+        "In 2014, China appeared in just **13 speeches** across the entire parliament. "
+        "By 2020, that number had risen to **569** — a 44× increase in six years. "
+        "The jump wasn't gradual: it accelerated sharply after 2018, driven by Huawei's "
+        "5G expansion, the Uyghur detention camps, and growing concern about economic dependency."
+    )
+
     trend = an.china_trend(df, freq="Y")
     fig = px.bar(
         trend, x="period", y="china_speeches",
-        labels={"period": "Year", "china_speeches": "Speeches mentioning China"},
+        labels={"period": "", "china_speeches": "Speeches mentioning China"},
         color_discrete_sequence=[HCSS_PRIMARY],
     )
-    fig.update_layout(showlegend=False)
+    fig.update_layout(showlegend=False, margin=dict(t=10))
     st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Chapter 2: Who speaks ──────────────────────────────────────────────────
+    st.subheader("2 · Not all parties talk about China equally")
+    st.markdown(
+        "When normalised for speaking frequency, **opposition parties** — particularly "
+        "PVV, D66, and GroenLinks — consistently rank highest. Governing parties tend "
+        "to be more measured. The chart below shows China speeches as a share of each "
+        "party's total output."
+    )
+
+    by_party = an.china_by_party(df, top_n=12)
+    fig = px.bar(
+        by_party.sort_values("rate"),
+        x="rate", y="party", orientation="h",
+        labels={"rate": "% of party's speeches mentioning China", "party": ""},
+        color_discrete_sequence=[HCSS_ACCENT],
+    )
+    fig.update_layout(margin=dict(t=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Chapter 3: The tone ────────────────────────────────────────────────────
+    st.subheader("3 · The tone is overwhelmingly negative — and getting more so")
+    st.markdown(
+        "Sentiment scores are computed only from sentences that explicitly mention China "
+        "(scale 0–5, where 2.5 is neutral). Across all parties, the mean sits well below "
+        "neutral — and drops further after 2019. The quotes below are representative."
+    )
+
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        st.markdown(
+            "> *\"There are even pictures of the abuses in China taken from satellites. "
+            "There's no lack of evidence.\"*"
+        )
+        st.caption("Sjoerd Sjoerdsma (D66) · February 2021 · on Xinjiang")
+    with col_q2:
+        st.markdown(
+            "> *\"The entire population of the Netherlands has to do with arbitrary "
+            "detention, abuse and indoctrination in political re-education camps.\"*"
+        )
+        st.caption("Tunahan Kuzu (DENK) · September 2018 · on Uyghurs")
+
+    bloc_df = an.sentiment_by_bloc(df)
+    if not bloc_df.empty:
+        fig = px.line(
+            bloc_df, x="year", y="mean_china_sentiment",
+            color="bloc", markers=True,
+            color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
+            labels={"mean_china_sentiment": "Mean China sentiment (0–5)", "year": ""},
+        )
+        fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                      annotation_text="Neutral")
+        fig.update_layout(margin=dict(t=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Chapter 4: Geopolitical framing ───────────────────────────────────────
+    st.subheader("4 · China is rarely discussed alone")
+    st.markdown(
+        "When Dutch politicians mention China, they most often also mention the **EU** — "
+        "reflecting debates about European trade policy and strategic autonomy. "
+        "Speeches that combine China with **Russia** are the most negative of all, "
+        "suggesting a distinct geopolitical threat frame."
+    )
+
+    combos = an.china_power_combinations(df)
+    if not combos.empty:
+        fig = px.bar(
+            combos.sort_values("n_speeches").tail(8),
+            x="n_speeches", y="combination", orientation="h",
+            color="mean_china_sentiment",
+            color_continuous_scale="RdYlGn",
+            range_color=[0, 5],
+            labels={"n_speeches": "Number of speeches",
+                    "combination": "",
+                    "mean_china_sentiment": "Avg China sentiment"},
+        )
+        fig.update_layout(margin=dict(t=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+    st.markdown(
+        "**Use the sidebar** to explore any of these dimensions in depth — "
+        "filter by year, chamber, or speaker role, and drill down into individual speeches."
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Trend over time
