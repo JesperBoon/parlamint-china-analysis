@@ -149,21 +149,42 @@ def sentiment_heatmap(df: pd.DataFrame) -> pd.DataFrame:
 
 def top_china_speakers(df: pd.DataFrame, top_n: int = 20) -> pd.DataFrame:
     """
-    Speakers ranked by total China mentions, with their party and mean sentiment.
+    Speakers ranked by total China mentions.
+    Includes china_pct: % of each speaker's total speeches that mention China.
+    Includes dominant speaker_context (minister / head / etc).
     """
-    df = df[df["china_mentions"] > 0].copy()
+    total_per_speaker = df.groupby("speaker_name").size().rename("total_speeches")
+
+    china_df = df[df["china_mentions"] > 0].copy()
     result = (
-        df.groupby(["speaker_name", "party"])
+        china_df.groupby(["speaker_name", "party"])
         .agg(
             total_china_mentions=("china_mentions", "sum"),
             china_speeches=("speech_id", "count"),
             avg_china_sentiment=("china_sentiment_avg", "mean"),
+            speaker_context=("speaker_context", lambda x: x.mode()[0] if len(x) else ""),
         )
         .reset_index()
         .nlargest(top_n, "total_china_mentions")
     )
+    result = result.merge(total_per_speaker, on="speaker_name", how="left")
+    result["china_pct"] = (
+        result["china_speeches"] / result["total_speeches"] * 100
+    ).round(1)
     result["avg_china_sentiment"] = result["avg_china_sentiment"].round(3)
     return result.reset_index(drop=True)
+
+
+def speaker_speeches(df: pd.DataFrame, speaker_name: str, top_n: int = 50) -> pd.DataFrame:
+    """All China-mentioning speeches for one speaker, most recent first."""
+    result = (
+        df[(df["china_mentions"] > 0) & (df["speaker_name"] == speaker_name)]
+        .sort_values("date", ascending=False)
+        .head(top_n)
+    )
+    cols = ["date", "topic", "sentiment_label", "china_sentiment_avg",
+            "china_mentions", "text"]
+    return result[[c for c in cols if c in result.columns]].copy()
 
 
 # ── 5. Great power co-occurrence ──────────────────────────────────────────────
@@ -268,29 +289,87 @@ def china_power_combinations(df: pd.DataFrame) -> pd.DataFrame:
 
 # ── 7. Parliament seat chart data ─────────────────────────────────────────────
 
-# 2017 Tweede Kamer composition (covers most of our 2015–2022 data window)
+# Election-period seat maps.
+# TK 2017 (Mar 2017): same composition until Mar 2021
+# TK 2021 (Mar 2021): new government composition
+# EK 2019 (Jun 2019): FvD surge after European elections
+
 TK_SEATS_2017 = {
     "VVD": 33, "PVV": 20, "CDA": 19, "D66": 19, "GroenLinks": 14,
     "SP": 14, "PvdA": 9, "ChristenUnie": 5, "PvdD": 5, "50PLUS": 4,
     "SGP": 3, "DENK": 3, "FvD": 2,
 }
-# 2019 Eerste Kamer composition (75 seats)
-EK_SEATS_2019 = {
-    "FvD": 12, "VVD": 12, "CDA": 9, "D66": 7, "PVV": 5, "GroenLinks": 8,
-    "SP": 4, "PvdA": 6, "ChristenUnie": 4, "PvdD": 3, "50PLUS": 2,
-    "SGP": 2, "OSF": 1,
+TK_SEATS_2021 = {
+    "VVD": 35, "PVV": 17, "D66": 8, "CDA": 14, "GroenLinks": 8,
+    "SP": 9, "PvdA": 9, "ChristenUnie": 5, "PvdD": 3, "50PLUS": 1,
+    "SGP": 3, "DENK": 3, "FvD": 8, "JA21": 3, "BBB": 1, "Volt": 2,
+    "BIJ1": 1,
 }
+EK_SEATS_2019 = {
+    "VVD": 12, "CDA": 9, "D66": 7, "PVV": 5, "GroenLinks": 8,
+    "SP": 4, "PvdA": 6, "ChristenUnie": 4, "PvdD": 3, "50PLUS": 2,
+    "SGP": 2, "FvD": 12, "OSF": 1,
+}
+
+TK_ELECTION_PERIODS = {
+    "2017–2021": (None, "2021-03-16", TK_SEATS_2017),
+    "2021–2022": ("2021-03-17", None, TK_SEATS_2021),
+}
+EK_ELECTION_PERIODS = {
+    "2019–2022": ("2019-06-12", None, EK_SEATS_2019),
+}
+
+
+def election_composition(df: pd.DataFrame, chamber: str):
+    """
+    Choose the seat map that best matches the filtered date range.
+    Returns (seat_map dict, period_label str).
+    """
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    min_date = df["date"].min()
+    max_date = df["date"].max()
+
+    if chamber == "tweedekamer":
+        for label, (after, before, seats) in TK_ELECTION_PERIODS.items():
+            a_ok = after is None or min_date >= pd.to_datetime(after)
+            b_ok = before is None or max_date < pd.to_datetime(before)
+            if a_ok and b_ok:
+                return seats, label
+        return TK_SEATS_2017, "2017–2021"
+    else:
+        return EK_SEATS_2019, "2019–2022"
 
 
 def seat_chart_data(df: pd.DataFrame, chamber: str = "tweedekamer") -> pd.DataFrame:
     """
-    For each parliamentary seat, return the China-mention rate of its party.
-    Returns: DataFrame with [seat_idx, party, rate, china_speeches, total_speeches].
-    Uses a fixed reference composition (2017 TK / 2019 EK).
-    """
-    seat_map = TK_SEATS_2017 if chamber == "tweedekamer" else EK_SEATS_2019
+    For each parliamentary seat, return China-mention metrics and sentiment.
+    Composition is dynamically chosen based on the filtered date range.
 
+    Returns DataFrame with columns:
+        [seat_idx, party, rate, china_speeches, total_speeches,
+         mean_china_sentiment, sentiment_n, spectrum, period_label]
+    """
+    seat_map, period_label = election_composition(df, chamber)
     by_party = china_by_party(df, top_n=100).set_index("party")
+
+    sentiment_df = parties_only(df)
+    sentiment_df = sentiment_df[sentiment_df["china_sentiment_avg"].notna()]
+    sent_agg = (
+        sentiment_df.groupby("party")
+        .agg(
+            mean_china_sentiment=("china_sentiment_avg", "mean"),
+            sentiment_n=("speech_id", "count"),
+        )
+        .round(3)
+    )
+
+    LEFT = {"SP", "PvdA", "GroenLinks", "PvdD", "DENK", "BIJ1", "Volt", "OSF"}
+    CENTER = {"D66", "ChristenUnie", "NSC"}
+    RIGHT = {
+        "VVD", "CDA", "PVV", "FvD", "SGP", "JA21",
+        "50PLUS", "BBB",
+    }
 
     rows = []
     seat_idx = 0
@@ -298,6 +377,14 @@ def seat_chart_data(df: pd.DataFrame, chamber: str = "tweedekamer") -> pd.DataFr
         rate = float(by_party["rate"].get(party, 0.0))
         china = int(by_party["china_speeches"].get(party, 0))
         total = int(by_party["total_speeches"].get(party, 0))
+        mcs = float(sent_agg["mean_china_sentiment"].get(party, float("nan")))
+        sn = int(sent_agg["sentiment_n"].get(party, 0))
+        if party in LEFT:
+            spectrum = "Left"
+        elif party in CENTER:
+            spectrum = "Center"
+        else:
+            spectrum = "Right"
         for _ in range(n_seats):
             rows.append({
                 "seat_idx": seat_idx,
@@ -305,9 +392,42 @@ def seat_chart_data(df: pd.DataFrame, chamber: str = "tweedekamer") -> pd.DataFr
                 "rate": rate,
                 "china_speeches": china,
                 "total_speeches": total,
+                "mean_china_sentiment": mcs,
+                "sentiment_n": sn,
+                "spectrum": spectrum,
+                "period_label": period_label,
             })
             seat_idx += 1
     return pd.DataFrame(rows)
+
+
+def party_sentiment_summary(df: pd.DataFrame, party: str) -> dict:
+    """
+    Per-party sentiment summary for the party detail overlay.
+    """
+    df_p = parties_only(df)
+    df_p = df_p[df_p["party"] == party]
+    china = df_p[df_p["china_mentions"] > 0]
+    yearly = (
+        china[china["china_sentiment_avg"].notna()]
+        .groupby("year")["china_sentiment_avg"]
+        .mean()
+        .round(3)
+        .to_dict()
+    )
+    top_topics = (
+        china.groupby("topic").size()
+        .nlargest(5)
+        .to_dict()
+    )
+    overall = round(china["china_sentiment_avg"].mean(), 3) if not china.empty else None
+    return {
+        "party": party,
+        "mean_china_sentiment": overall,
+        "n_china_speeches": int(len(china)),
+        "yearly_sentiment": yearly,
+        "top_topics": top_topics,
+    }
 
 
 # ── 8. Topic context of China mentions ────────────────────────────────────────
