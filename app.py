@@ -5,6 +5,8 @@ HCSS Datalab | Dutch Parliamentary Debates on China (2015–2022)
 Run with: streamlit run app.py
 """
 
+# ── App-wide language: English ────────────────────────────────────────────────
+
 import os
 import streamlit as st
 import pandas as pd
@@ -14,6 +16,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 import analysis as an
+
+HCSS_PRIMARY = "#003082"
+HCSS_ACCENT = "#0066CC"
+HCSS_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"]
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -31,8 +37,16 @@ def load_data():
     return an.load(DATA_PATH)
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "hcss_logo.png")
+
 with st.sidebar:
-    st.title("🏛️ China in Dutch Parliament")
+    if os.path.exists(LOGO_PATH):
+        # narrow column wrapper → browser-native scaling = crisp on retina
+        col_a, col_b, col_c = st.columns([1, 2, 1])
+        with col_b:
+            st.image(LOGO_PATH, use_container_width=True)
+    st.title("HCSS Tool")
+    st.caption("How China is discussed in the Dutch Parliament")
     st.caption("ParlaMint-NL | 2015–2022")
     st.divider()
 
@@ -85,7 +99,12 @@ if page != "Overview":
 # PAGE: Overview
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "Overview":
-    st.title("China in the Dutch Parliament")
+    col_logo, col_title = st.columns([1, 8])
+    with col_logo:
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH, use_container_width=True)
+    with col_title:
+        st.title("HCSS Tool — How China is discussed in the Dutch Parliament")
     st.markdown(
         "This tool analyses **ParlaMint-NL** — a corpus of Dutch parliamentary "
         "debates from 2015 to 2022 — through the lens of *China in a Changing "
@@ -106,7 +125,7 @@ if page == "Overview":
     fig = px.bar(
         trend, x="period", y="china_speeches",
         labels={"period": "Year", "china_speeches": "Speeches mentioning China"},
-        color_discrete_sequence=["#c0392b"],
+        color_discrete_sequence=[HCSS_PRIMARY],
     )
     fig.update_layout(showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
@@ -117,8 +136,8 @@ if page == "Overview":
 elif page == "Trend over time":
     st.title("China mentions over time")
 
-    freq = st.radio("Granularity", ["Quarter", "Month", "Year"], horizontal=True)
-    freq_map = {"Quarter": "Q", "Month": "M", "Year": "Y"}
+    freq = st.radio("Granularity", ["Year", "Quarter", "Month"], horizontal=True)
+    freq_map = {"Year": "Y", "Quarter": "Q", "Month": "M"}
     trend = an.china_trend(df, freq=freq_map[freq])
 
     tab1, tab2 = st.tabs(["Absolute count", "As % of all speeches"])
@@ -128,7 +147,7 @@ elif page == "Trend over time":
             trend, x="period", y="china_speeches",
             markers=True,
             labels={"period": "", "china_speeches": "Speeches mentioning China"},
-            color_discrete_sequence=["#c0392b"],
+            color_discrete_sequence=[HCSS_PRIMARY],
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -137,7 +156,7 @@ elif page == "Trend over time":
             trend, x="period", y="pct",
             markers=True,
             labels={"period": "", "pct": "% of all speeches"},
-            color_discrete_sequence=["#e67e22"],
+            color_discrete_sequence=[HCSS_ACCENT],
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -147,17 +166,21 @@ elif page == "Trend over time":
 elif page == "Party comparison":
     st.title("Which parties talk about China?")
 
-    top_n = st.slider("Show top N parties", 5, 20, 12)
-    by_party = an.china_by_party(df, top_n=top_n)
+    by_party = an.china_by_party(df, top_n=50)
 
     tab1, tab2 = st.tabs(["Total speeches", "Normalised rate (%)"])
+    st.caption(
+        "**Normalised rate** = % of that party's *own* speeches that mention China. "
+        "It corrects for the fact that some parties simply speak more often than others. "
+        "It does **not** weight by parliamentary seats or speaking time."
+    )
 
     with tab1:
         fig = px.bar(
             by_party.sort_values("china_speeches"),
             x="china_speeches", y="party", orientation="h",
             labels={"china_speeches": "Speeches mentioning China", "party": ""},
-            color_discrete_sequence=["#2c3e50"],
+            color_discrete_sequence=[HCSS_PRIMARY],
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -166,7 +189,7 @@ elif page == "Party comparison":
             by_party.sort_values("rate"),
             x="rate", y="party", orientation="h",
             labels={"rate": "% of party's speeches mentioning China", "party": ""},
-            color_discrete_sequence=["#2980b9"],
+            color_discrete_sequence=[HCSS_ACCENT],
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -210,7 +233,7 @@ elif page == "Sentiment analysis":
                 bloc_df, x="year", y="mean_china_sentiment",
                 color="bloc",
                 markers=True,
-                color_discrete_map={"Left": "#e74c3c", "Center": "#95a5a6", "Right": "#2980b9"},
+                color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
                 labels={"mean_china_sentiment": "Mean China sentiment", "year": "Year"},
             )
             fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
@@ -252,8 +275,8 @@ elif page == "Great power context":
             color="power",
             markers=True,
             labels={"cooccurrence_pct": "% of China speeches also mentioning", "year": "Year"},
-            color_discrete_map={"US": "#2980b9", "RUSSIA": "#c0392b",
-                                 "EU": "#27ae60", "NATO": "#8e44ad"},
+            color_discrete_map={"US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
+                                 "EU": HCSS_ACCENT, "NATO": "#1A1A1A"},
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -266,8 +289,7 @@ elif page == "Great power context":
 elif page == "Top speakers":
     st.title("Most active speakers on China")
 
-    top_n = st.slider("Show top N speakers", 5, 30, 15)
-    speakers = an.top_china_speakers(df, top_n=top_n)
+    speakers = an.top_china_speakers(df, top_n=20)
 
     fig = px.bar(
         speakers.sort_values("total_china_mentions"),

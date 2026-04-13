@@ -50,11 +50,30 @@ OUT_PATH = os.path.join(BASE, "data", "processed", "speeches.parquet")
 TEI = "http://www.tei-c.org/ns/1.0"
 T = lambda tag: f"{{{TEI}}}{tag}"
 
-# Lemmas to count as China mentions
-CHINA_LEMMAS = {
+# China-related terms. Split into single-token lemmas (fast set lookup)
+# and multi-word phrases (substring match on joined lemma sequence).
+CHINA_LEMMAS_SINGLE = {
+    # Original
     "china", "chinese", "beijing", "peking",
-    "xi", "huawei", "taiwan", "hong kong", "xinjiang",
-    "tibet", "ccp", "bri",
+    "xi", "huawei", "taiwan", "xinjiang", "tibet", "ccp", "bri",
+    # Cities
+    "shanghai", "shenzhen", "wuhan",
+    # Human rights
+    "uyghur", "uighur",
+    # Leaders / institutions
+    "mao", "cctv",
+    # Tech / companies
+    "alibaba", "tencent", "tiktok", "zte",
+}
+CHINA_PHRASES = {
+    "hong kong",
+    "belt and road",
+    "one china",
+    "south china sea",
+    "made in china",
+    "xi jinping",
+    "communist party",
+    "falun gong",
 }
 
 # Great power co-occurrence lemmas — single-word only (multi-word phrases
@@ -69,7 +88,9 @@ GREAT_POWER_LEMMAS = {
 # ── Speaker metadata ───────────────────────────────────────────────────────────
 
 def parse_persons(subset_dir: str) -> dict:
-    """Returns {speaker_id: {name, party, gender}} from listPerson.xml."""
+    """Returns {speaker_id: {name, gender, affiliations}} from listPerson.xml.
+    Each affiliation keeps its (ref, role, from, to) so we can resolve the
+    correct party / context by speech date (Fork B)."""
     path = os.path.join(subset_dir, "ParlaMint-NL-en.TEI.ana", "ParlaMint-NL-listPerson.xml")
     if not os.path.exists(path):
         print(f"  [warn] listPerson.xml not found at {path}")
@@ -82,7 +103,6 @@ def parse_persons(subset_dir: str) -> dict:
     for person in root.iter(T("person")):
         pid = person.get("{http://www.w3.org/XML/1998/namespace}id", "")
 
-        # Name
         forename = ""
         surname = ""
         pn = person.find(T("persName"))
@@ -93,21 +113,75 @@ def parse_persons(subset_dir: str) -> dict:
             surname = sn.text.strip() if sn is not None and sn.text else ""
         name = f"{forename} {surname}".strip() or pid
 
-        # Gender
         sex_el = person.find(T("sex"))
         gender = sex_el.get("value", "") if sex_el is not None else ""
 
-        # Party — take the most recent affiliation with role="member"
-        party = ""
+        affiliations = []
         for aff in person.findall(T("affiliation")):
-            if aff.get("role") == "member":
-                ref = aff.get("ref", "")
-                party = ref.lstrip("#")
+            affiliations.append({
+                "ref": aff.get("ref", "").lstrip("#"),
+                "role": aff.get("role", ""),
+                "from": aff.get("from", ""),
+                "to": aff.get("to", ""),
+            })
 
-        persons[pid] = {"speaker_name": name, "party": party, "gender": gender}
+        persons[pid] = {
+            "speaker_name": name,
+            "gender": gender,
+            "affiliations": affiliations,
+        }
 
     print(f"  Loaded {len(persons)} speakers from listPerson.xml")
     return persons
+
+
+def _active_at(aff: dict, date: str) -> bool:
+    """True if affiliation is active on date (YYYY-MM-DD)."""
+    f, t = aff["from"], aff["to"]
+    if f and date < f:
+        return False
+    if t and date > t:
+        return False
+    return True
+
+
+def resolve_speaker(persons: dict, speaker_id: str, date: str) -> dict:
+    """Pick the correct party and speaker_context for this speech date.
+
+    party           → active 'member' affiliation, preferring party.XXX
+                      refs over generic chamber refs (TK/EK).
+    speaker_context → active non-member role (minister, head, chair, ...),
+                      describing the capacity in which the person spoke.
+    """
+    info = persons.get(speaker_id)
+    if not info:
+        return {"speaker_name": "", "gender": "", "party": "", "speaker_context": ""}
+
+    active = [a for a in info["affiliations"] if _active_at(a, date)] if date else []
+
+    party = ""
+    for a in active:
+        if a["role"] == "member" and a["ref"].startswith("party."):
+            party = a["ref"]
+            break
+    if not party:
+        for a in active:
+            if a["role"] == "member":
+                party = a["ref"]
+                break
+
+    context = ""
+    for a in active:
+        if a["role"] and a["role"] != "member":
+            context = a["role"]
+            break
+
+    return {
+        "speaker_name": info["speaker_name"],
+        "gender": info["gender"],
+        "party": party,
+        "speaker_context": context,
+    }
 
 
 # ── Debate XML parser ──────────────────────────────────────────────────────────
@@ -121,7 +195,7 @@ def extract_date_chamber(filename: str):
     return "", ""
 
 
-def parse_utterance(u_el, date: str, chamber: str, file_id: str) -> dict:
+def parse_utterance(u_el, date: str, chamber: str, file_id: str, persons: dict) -> dict:
     """Extract all relevant fields from one <u> element."""
     speech_id = u_el.get("{http://www.w3.org/XML/1998/namespace}id", "")
     who = u_el.get("who", "").lstrip("#")
@@ -164,15 +238,22 @@ def parse_utterance(u_el, date: str, chamber: str, file_id: str) -> dict:
                 sentence_lemmas.append(lemma)
 
         # If this sentence mentions China AND has a sentiment score, record it
-        if sent_score is not None and any(l in CHINA_LEMMAS for l in sentence_lemmas):
-            china_sentiments.append(sent_score)
+        if sent_score is not None:
+            sent_lemma_str = " ".join(sentence_lemmas)
+            if (any(l in CHINA_LEMMAS_SINGLE for l in sentence_lemmas)
+                    or any(p in sent_lemma_str for p in CHINA_PHRASES)):
+                china_sentiments.append(sent_score)
 
     text = " ".join(w for w, _ in words)
     word_count = len(words)
     all_lemmas = [lemma for _, lemma in words]
+    all_lemmas_str = " ".join(all_lemmas)
 
-    # China mentions count
-    china_mentions = sum(1 for l in all_lemmas if l in CHINA_LEMMAS)
+    # China mentions: single-token matches + phrase occurrences
+    china_mentions = (
+        sum(1 for l in all_lemmas if l in CHINA_LEMMAS_SINGLE)
+        + sum(all_lemmas_str.count(p) for p in CHINA_PHRASES)
+    )
 
     # China-specific sentiment — None when no China sentence in this speech
     china_sentiment_avg = (
@@ -190,6 +271,8 @@ def parse_utterance(u_el, date: str, chamber: str, file_id: str) -> dict:
         for col, lemma_set in GREAT_POWER_LEMMAS.items()
     }
 
+    resolved = resolve_speaker(persons, who, date)
+
     return {
         "speech_id": speech_id,
         "file_id": file_id,
@@ -197,6 +280,10 @@ def parse_utterance(u_el, date: str, chamber: str, file_id: str) -> dict:
         "year": int(date[:4]) if date else None,
         "chamber": chamber,
         "speaker_id": who,
+        "speaker_name": resolved["speaker_name"],
+        "party": resolved["party"],
+        "gender": resolved["gender"],
+        "speaker_context": resolved["speaker_context"],
         "role": role,
         "topic": topic,
         "sentiment_avg": sentiment_avg,
@@ -209,7 +296,7 @@ def parse_utterance(u_el, date: str, chamber: str, file_id: str) -> dict:
     }
 
 
-def parse_debate_file(filepath: str) -> list[dict]:
+def parse_debate_file(filepath: str, persons: dict) -> list[dict]:
     """Parse one session XML → list of speech dicts."""
     file_id = os.path.basename(filepath).replace(".ana.xml", "")
     date, chamber = extract_date_chamber(filepath)
@@ -223,7 +310,7 @@ def parse_debate_file(filepath: str) -> list[dict]:
     root = tree.getroot()
     rows = []
     for u_el in root.iter(T("u")):
-        rows.append(parse_utterance(u_el, date, chamber, file_id))
+        rows.append(parse_utterance(u_el, date, chamber, file_id, persons))
     return rows
 
 
@@ -247,7 +334,7 @@ def main():
     all_rows = []
 
     for i, filepath in enumerate(sorted(files), 1):
-        rows = parse_debate_file(filepath)
+        rows = parse_debate_file(filepath, persons)
         all_rows.extend(rows)
         if i % 100 == 0:
             print(f"  ... {i}/{len(files)} files, {len(all_rows)} speeches so far")
@@ -255,16 +342,11 @@ def main():
     print(f"\nBuilding DataFrame ({len(all_rows)} speeches)...")
     df = pd.DataFrame(all_rows)
 
-    # Join speaker metadata
-    speaker_df = pd.DataFrame.from_dict(persons, orient="index")
-    speaker_df.index.name = "speaker_id"
-    speaker_df = speaker_df.reset_index()
-    df = df.merge(speaker_df, on="speaker_id", how="left")
-
-    # Reorder columns cleanly
+    # Reorder columns cleanly (speaker metadata already resolved per-row)
     cols = [
         "speech_id", "file_id", "date", "year", "chamber",
-        "speaker_id", "speaker_name", "party", "gender", "role",
+        "speaker_id", "speaker_name", "party", "gender",
+        "role", "speaker_context",
         "topic", "sentiment_avg", "sentiment_label", "china_sentiment_avg",
         "text", "word_count", "china_mentions",
         "mentions_us", "mentions_russia", "mentions_eu", "mentions_nato",
