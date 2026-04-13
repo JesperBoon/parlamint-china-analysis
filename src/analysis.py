@@ -260,6 +260,72 @@ def great_power_cooccurrence(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# ── 5b. Great power sentiment proxy ───────────────────────────────────────────
+
+def power_sentiment_proxy(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Proxy sentiment toward each great power: avg china_sentiment_avg from
+    speeches that mention China AND that power in the same speech.
+    No re-parse needed — uses existing co-occurrence columns.
+
+    Interpretation: "How negative is parliament when discussing China
+    in the context of [US / Russia / EU / NATO]?"
+
+    Returns: DataFrame [power, avg_sentiment, n_speeches]
+    Also returns an 'overall' row for China-only context.
+    """
+    china = df[df["china_mentions"] > 0].copy()
+    china = china[china["china_sentiment_avg"].notna()]
+
+    POWER_COLS = {
+        "China (overall)": None,
+        "China + US": "mentions_us",
+        "China + Russia": "mentions_russia",
+        "China + EU": "mentions_eu",
+        "China + NATO": "mentions_nato",
+    }
+
+    rows = []
+    for label, col in POWER_COLS.items():
+        subset = china if col is None else china[china[col] > 0]
+        if subset.empty:
+            continue
+        rows.append({
+            "power": label,
+            "avg_sentiment": round(subset["china_sentiment_avg"].mean(), 3),
+            "n_speeches": len(subset),
+        })
+    return pd.DataFrame(rows)
+
+
+def power_sentiment_trend(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Year-by-year proxy sentiment for each power context.
+    Returns: [year, power, avg_sentiment, n_speeches]
+    """
+    china = df[df["china_mentions"] > 0].copy()
+    china = china[china["china_sentiment_avg"].notna()]
+
+    POWER_COLS = {
+        "China (overall)": None,
+        "China + US": "mentions_us",
+        "China + Russia": "mentions_russia",
+        "China + EU": "mentions_eu",
+    }
+
+    rows = []
+    for label, col in POWER_COLS.items():
+        subset = china if col is None else china[china[col] > 0]
+        for year, grp in subset.groupby("year"):
+            rows.append({
+                "year": year,
+                "power": label,
+                "avg_sentiment": round(grp["china_sentiment_avg"].mean(), 3),
+                "n_speeches": len(grp),
+            })
+    return pd.DataFrame(rows)
+
+
 # ── 6. Left-right sentiment split ─────────────────────────────────────────────
 
 # Rough left-right grouping based on Dutch political spectrum

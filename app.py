@@ -470,8 +470,60 @@ if page == "Overview":
 
     st.divider()
 
-    # ── Chapter 4: Geopolitical framing ───────────────────────────────────────
-    st.subheader("4 · China is rarely discussed alone")
+    # ── Chapter 4: Is China uniquely controversial? ───────────────────────────
+    st.subheader("4 · Is China uniquely controversial — or is this just geopolitics?")
+    st.markdown(
+        "Dutch parliament is negative about China. But are they equally negative about "
+        "Russia and the US? The bars below show average China-specific sentiment depending "
+        "on which other power is mentioned in the same speech. "
+        "**Speeches combining China with Russia are the most negative of all.**"
+    )
+
+    proxy_df = an.power_sentiment_proxy(df)
+    if not proxy_df.empty:
+        POWER_COLORS = {
+            "China (overall)": HCSS_PRIMARY,
+            "China + US":      "#5A8FD6",
+            "China + Russia":  "#C0392B",
+            "China + EU":      "#F39C12",
+            "China + NATO":    "#1A1A1A",
+        }
+        proxy_df = proxy_df.sort_values("avg_sentiment")
+        proxy_df["color"] = proxy_df["power"].map(POWER_COLORS)
+        proxy_df["label"] = proxy_df["avg_sentiment"].apply(score_to_label)
+
+        col_bar, col_numbers = st.columns([3, 1])
+        with col_bar:
+            fig = px.bar(
+                proxy_df,
+                x="avg_sentiment", y="power", orientation="h",
+                color="power",
+                color_discrete_map=POWER_COLORS,
+                labels={"avg_sentiment": "Avg. China sentiment (0–5)", "power": ""},
+                hover_data={"n_speeches": True, "label": True, "avg_sentiment": ":.2f"},
+                text="label",
+            )
+            fig.add_vline(x=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral", annotation_position="top")
+            fig.update_traces(textposition="outside", textfont=dict(size=10))
+            fig.update_layout(
+                showlegend=False,
+                xaxis=dict(range=[0, 4]),
+                margin=dict(t=10, b=10),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        with col_numbers:
+            st.markdown("**Avg. sentiment**")
+            for _, row in proxy_df.sort_values("avg_sentiment").iterrows():
+                st.markdown(
+                    f"**{row['power']}**  \n"
+                    f"`{row['avg_sentiment']:.2f}` · {row['n_speeches']:,} speeches"
+                )
+
+    st.divider()
+
+    # ── Chapter 5: Geopolitical framing ───────────────────────────────────────
+    st.subheader("5 · China is rarely discussed alone")
     st.markdown(
         "When Dutch politicians mention China, they most often also mention the **EU** — "
         "reflecting debates about European trade policy and strategic autonomy. "
@@ -827,8 +879,9 @@ elif page == "Sentiment analysis":
         icon="ℹ️",
     )
 
-    tab1, tab_h, tab2, tab3 = st.tabs([
-        "Animated by year", "Sorted by sentiment", "Single party over time", "Distribution"
+    tab1, tab_h, tab2, tab3, tab_ref = st.tabs([
+        "Animated by year", "Sorted by sentiment", "Single party over time",
+        "Distribution", "Reference comparison",
     ])
 
     heatmap = an.sentiment_heatmap(df)
@@ -950,6 +1003,72 @@ elif page == "Sentiment analysis":
         fig.update_layout(showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
+    with tab_ref:
+        st.subheader("Is parliament more negative about China than about other powers?")
+        st.markdown(
+            "Each bar = avg. China-specific sentiment from speeches that mention China **and** "
+            "that power in the same speech. Lower = parliament sounds more negative when "
+            "discussing China in that context. The 'China (overall)' bar is the baseline."
+        )
+        proxy_ref = an.power_sentiment_proxy(df)
+        if proxy_ref.empty:
+            st.warning("Not enough data under current filters.")
+        else:
+            REF_COLORS = {
+                "China (overall)": HCSS_PRIMARY,
+                "China + US":      "#5A8FD6",
+                "China + Russia":  "#C0392B",
+                "China + EU":      "#F39C12",
+                "China + NATO":    "#1A1A1A",
+            }
+            proxy_ref = proxy_ref.sort_values("avg_sentiment")
+            proxy_ref["label"] = proxy_ref["avg_sentiment"].apply(score_to_label)
+            fig = px.bar(
+                proxy_ref,
+                x="avg_sentiment", y="power", orientation="h",
+                color="power",
+                color_discrete_map=REF_COLORS,
+                labels={"avg_sentiment": "Avg. China sentiment (0–5)", "power": ""},
+                hover_data={"n_speeches": True, "label": True, "avg_sentiment": ":.2f"},
+                text="label",
+            )
+            fig.add_vline(x=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral", annotation_position="top")
+            fig.update_traces(textposition="outside", textfont=dict(size=10))
+            fig.update_layout(
+                showlegend=False,
+                xaxis=dict(range=[0, 4]),
+                margin=dict(t=10),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("How has that comparison shifted over time?")
+        ptrend_ref = an.power_sentiment_trend(df)
+        if not ptrend_ref.empty:
+            TREND_COLORS = {
+                "China (overall)": HCSS_PRIMARY,
+                "China + US":      "#5A8FD6",
+                "China + Russia":  "#C0392B",
+                "China + EU":      "#F39C12",
+            }
+            fig2 = px.line(
+                ptrend_ref, x="year", y="avg_sentiment",
+                color="power", markers=True,
+                color_discrete_map=TREND_COLORS,
+                labels={"avg_sentiment": "Avg. China sentiment (0–5)",
+                        "year": "Year", "power": "Context"},
+                hover_data={"n_speeches": True},
+            )
+            fig2.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                           annotation_text="Neutral")
+            fig2.update_layout(yaxis=dict(range=[0, 5]))
+            st.plotly_chart(fig2, use_container_width=True)
+            st.caption(
+                "Note: sentiment here is China-specific — computed only from sentences "
+                "mentioning China. A lower score when Russia is co-mentioned reflects "
+                "a more hawkish framing, not a negative assessment of Russia itself."
+            )
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Great power context
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1002,21 +1121,61 @@ elif page == "Great power context":
                 st.dataframe(combos, use_container_width=True)
 
     with tab_trend:
-        st.caption(
-            "How often is each great power mentioned alongside China, "
-            "as a percentage of China-mentioning speeches that year?"
+        gp_ymode = st.radio(
+            "Y-axis",
+            ["Co-occurrence frequency (%)", "Avg. China sentiment"],
+            horizontal=True,
+            key="gp_ymode",
+            help=(
+                "**Co-occurrence frequency** = % of China speeches that year which also "
+                "mention this power.  "
+                "**Avg. China sentiment** = tone of speeches that mention China *and* this power."
+            ),
         )
-        cooc = an.great_power_cooccurrence(df)
-        if not cooc.empty:
-            fig = px.line(
-                cooc, x="year", y="cooccurrence_pct",
-                color="power", markers=True,
-                labels={"cooccurrence_pct": "% of China speeches also mentioning",
-                        "year": "Year"},
-                color_discrete_map={"US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
-                                     "EU": HCSS_ACCENT, "NATO": "#1A1A1A"},
+        POWER_COLOR_MAP = {
+            "US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
+            "EU": HCSS_ACCENT, "NATO": "#1A1A1A",
+        }
+        if gp_ymode == "Co-occurrence frequency (%)":
+            st.caption(
+                "% of China-mentioning speeches that year which also mention each power."
             )
-            st.plotly_chart(fig, use_container_width=True)
+            cooc = an.great_power_cooccurrence(df)
+            if not cooc.empty:
+                fig = px.line(
+                    cooc, x="year", y="cooccurrence_pct",
+                    color="power", markers=True,
+                    labels={"cooccurrence_pct": "% of China speeches also mentioning",
+                            "year": "Year", "power": "Power"},
+                    color_discrete_map=POWER_COLOR_MAP,
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.caption(
+                "Average China-specific sentiment in speeches that mention "
+                "China *and* each power. Below 2.5 = negative tone toward China."
+            )
+            ptrend = an.power_sentiment_trend(df)
+            # Only keep the "China + X" rows (not overall) for the line chart
+            ptrend_lines = ptrend[ptrend["power"] != "China (overall)"].copy()
+            # Remap power names to match co-occurrence labels
+            ptrend_lines["power_short"] = ptrend_lines["power"].str.replace("China + ", "", regex=False)
+            if not ptrend_lines.empty:
+                fig = px.line(
+                    ptrend_lines, x="year", y="avg_sentiment",
+                    color="power_short", markers=True,
+                    labels={"avg_sentiment": "Avg. China sentiment (0–5)",
+                            "year": "Year", "power_short": "Also mentions"},
+                    color_discrete_map={
+                        "US": HCSS_PRIMARY, "Russia": "#C0392B",
+                        "EU": HCSS_ACCENT, "NATO": "#1A1A1A",
+                    },
+                    hover_data={"n_speeches": True},
+                )
+                fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                              annotation_text="Neutral")
+                fig.update_layout(yaxis=dict(range=[0, 5]))
+                st.plotly_chart(fig, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Top speakers
