@@ -13,9 +13,25 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import sys
+import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 import analysis as an
+
+
+def horseshoe_coords(n_seats: int, n_rows: int = 5):
+    """Compute (x, y) for n_seats arranged in a parliamentary horseshoe."""
+    radii = [1.0 + i * 0.18 for i in range(n_rows)]
+    total_w = sum(radii)
+    seats_per_row = [max(1, round(n_seats * r / total_w)) for r in radii]
+    diff = n_seats - sum(seats_per_row)
+    seats_per_row[-1] += diff
+    coords = []
+    for r, n in zip(radii, seats_per_row):
+        for i in range(n):
+            angle = math.pi - (i + 0.5) * math.pi / n
+            coords.append((r * math.cos(angle), r * math.sin(angle)))
+    return coords
 
 HCSS_PRIMARY = "#003082"
 HCSS_ACCENT = "#0066CC"
@@ -95,6 +111,27 @@ if page != "Overview":
         if chamber != "All":
             df = df[df["chamber"] == chamber]
 
+        # Speaker context filter: distinguishes role at time of speaking
+        # (party member vs minister vs chamber chair, etc.)
+        ctx_label = {
+            "": "Party member (MP)",
+            "head": "Chamber chair",
+            "minister": "Minister",
+            "secretaryOfState": "Secretary of State",
+            "deputyHead": "Deputy chair",
+        }
+        ctx_present = sorted(df["speaker_context"].dropna().unique().tolist())
+        ctx_options = [ctx_label.get(c, c or "Party member (MP)") for c in ctx_present]
+        ctx_chosen_labels = st.multiselect(
+            "Speaker role",
+            ctx_options,
+            default=ctx_options,
+            help="Filter by the role the speaker held at the time of the speech.",
+        )
+        reverse_label = {v: k for k, v in ctx_label.items()}
+        ctx_chosen_keys = [reverse_label.get(l, l) for l in ctx_chosen_labels]
+        df = df[df["speaker_context"].isin(ctx_chosen_keys)]
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Overview
 # ══════════════════════════════════════════════════════════════════════════════
@@ -140,7 +177,7 @@ elif page == "Trend over time":
     freq_map = {"Year": "Y", "Quarter": "Q", "Month": "M"}
     trend = an.china_trend(df, freq=freq_map[freq])
 
-    tab1, tab2 = st.tabs(["Absolute count", "As % of all speeches"])
+    tab1, tab2, tab3 = st.tabs(["Absolute count", "As % of all speeches", "By party"])
 
     with tab1:
         fig = px.line(
@@ -160,6 +197,24 @@ elif page == "Trend over time":
         )
         st.plotly_chart(fig, use_container_width=True)
 
+    with tab3:
+        st.caption(
+            "When did China become a topic *for each party*? "
+            "Showing the 8 parties with the most China-mentioning speeches."
+        )
+        by_party_trend = an.china_trend_by_party(df, freq=freq_map[freq])
+        if by_party_trend.empty:
+            st.warning("No China-mentioning speeches under current filters.")
+        else:
+            fig = px.line(
+                by_party_trend, x="period", y="china_speeches",
+                color="party", markers=True,
+                labels={"period": "", "china_speeches": "Speeches mentioning China",
+                        "party": "Party"},
+                color_discrete_sequence=HCSS_PALETTE + ["#5DADE2", "#229954"],
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Party comparison
 # ══════════════════════════════════════════════════════════════════════════════
@@ -168,7 +223,7 @@ elif page == "Party comparison":
 
     by_party = an.china_by_party(df, top_n=50)
 
-    tab1, tab2 = st.tabs(["Total speeches", "Normalised rate (%)"])
+    tab1, tab2, tab3 = st.tabs(["Total speeches", "Normalised rate (%)", "Parliament seats"])
     st.caption(
         "**Normalised rate** = % of that party's *own* speeches that mention China. "
         "It corrects for the fact that some parties simply speak more often than others. "
@@ -193,6 +248,40 @@ elif page == "Party comparison":
         )
         st.plotly_chart(fig, use_container_width=True)
 
+    with tab3:
+        seat_chamber = st.radio(
+            "Chamber composition",
+            ["Tweede Kamer (2017, 150 seats)", "Eerste Kamer (2019, 75 seats)"],
+            horizontal=True,
+        )
+        chamber_key = "tweedekamer" if "Tweede" in seat_chamber else "eerstekamer"
+        st.caption(
+            "Each dot is one parliamentary seat. Colour = how often that party "
+            "mentions China across the filter range. Reference composition is "
+            "fixed (2017 TK / 2019 EK) — actual data spans 2015–2022."
+        )
+        seats = an.seat_chart_data(df, chamber=chamber_key)
+        if seats.empty:
+            st.warning("No seat data available.")
+        else:
+            coords = horseshoe_coords(len(seats), n_rows=6 if chamber_key == "tweedekamer" else 4)
+            seats = seats.assign(x=[c[0] for c in coords], y=[c[1] for c in coords])
+            fig = px.scatter(
+                seats, x="x", y="y",
+                color="rate",
+                hover_data={"party": True, "rate": ":.2f", "china_speeches": True,
+                            "total_speeches": True, "x": False, "y": False},
+                color_continuous_scale=[[0, "#E5E5E5"], [0.5, HCSS_ACCENT], [1, HCSS_PRIMARY]],
+                labels={"rate": "China mention rate (%)"},
+            )
+            fig.update_traces(marker=dict(size=14, line=dict(width=0.5, color="white")))
+            fig.update_layout(
+                xaxis=dict(visible=False, scaleanchor="y", scaleratio=1),
+                yaxis=dict(visible=False),
+                plot_bgcolor="white", height=500,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Sentiment analysis
 # ══════════════════════════════════════════════════════════════════════════════
@@ -206,9 +295,41 @@ elif page == "Sentiment analysis":
         icon="ℹ️",
     )
 
-    tab1, tab2, tab3 = st.tabs(["Party heatmap", "Left vs Right over time", "Distribution"])
+    tab1, tab_h, tab2, tab3 = st.tabs([
+        "Animated by year", "Party heatmap", "Left vs Right over time", "Distribution"
+    ])
 
     with tab1:
+        st.subheader("Watch each party's stance on China shift over time")
+        st.caption(
+            "Press play (▶) or drag the slider. Bars below 2.5 = negative tone "
+            "toward China that year, above = positive."
+        )
+        heatmap = an.sentiment_heatmap(df)
+        if not heatmap.empty:
+            anim_df = (
+                heatmap.reset_index()
+                .melt(id_vars="party", var_name="year", value_name="sentiment")
+                .dropna()
+            )
+            anim_df["year"] = anim_df["year"].astype(int).astype(str)
+            anim_df = anim_df.sort_values(["year", "party"])
+            fig = px.bar(
+                anim_df, x="party", y="sentiment",
+                animation_frame="year",
+                range_y=[0, 5],
+                color="sentiment",
+                color_continuous_scale="RdYlGn",
+                range_color=[0, 5],
+                labels={"sentiment": "China sentiment", "party": ""},
+            )
+            fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Not enough data with current filters.")
+
+    with tab_h:
         st.subheader("Mean China-specific sentiment per party per year")
         st.caption("Scale: 0 = very negative, 5 = very positive | Blank = insufficient data")
         heatmap = an.sentiment_heatmap(df)
@@ -263,25 +384,59 @@ elif page == "Sentiment analysis":
 elif page == "Great power context":
     st.title("China alongside other great powers")
     st.markdown(
-        "In speeches that mention China — how often are other great powers "
-        "mentioned in the same speech? This reveals whether China is discussed "
-        "in isolation or framed against geopolitical alternatives."
+        "When Dutch politicians mention China, **who else is in the room**? "
+        "Is China discussed as an isolated actor, framed against the US, "
+        "grouped with Russia, or set off against the EU? And does the company "
+        "China keeps shape the *tone* of the conversation?"
     )
 
-    cooc = an.great_power_cooccurrence(df)
-    if not cooc.empty:
-        fig = px.line(
-            cooc, x="year", y="cooccurrence_pct",
-            color="power",
-            markers=True,
-            labels={"cooccurrence_pct": "% of China speeches also mentioning", "year": "Year"},
-            color_discrete_map={"US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
-                                 "EU": HCSS_ACCENT, "NATO": "#1A1A1A"},
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    tab_combo, tab_trend = st.tabs([
+        "Combinations & sentiment", "Co-occurrence over time"
+    ])
 
-        st.subheader("Raw co-occurrence table")
-        st.dataframe(cooc, use_container_width=True)
+    with tab_combo:
+        st.subheader("Which combinations dominate — and how negative are they?")
+        st.caption(
+            "Each bar = a unique combination of great powers mentioned together "
+            "with China in the same speech. Colour = mean China-specific sentiment "
+            "(red = negative, green = positive). Combinations with <10 speeches hidden."
+        )
+        combos = an.china_power_combinations(df)
+        if combos.empty:
+            st.warning("No combinations meet the threshold under current filters.")
+        else:
+            fig = px.bar(
+                combos.sort_values("n_speeches"),
+                x="n_speeches", y="combination", orientation="h",
+                color="mean_china_sentiment",
+                color_continuous_scale="RdYlGn",
+                range_color=[0, 5],
+                labels={"n_speeches": "Number of speeches",
+                        "combination": "",
+                        "mean_china_sentiment": "China sentiment"},
+                hover_data={"mean_china_sentiment": ":.2f",
+                            "mean_sentiment_avg": ":.2f"},
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            with st.expander("Underlying numbers"):
+                st.dataframe(combos, use_container_width=True)
+
+    with tab_trend:
+        st.caption(
+            "How often is each great power mentioned alongside China, "
+            "as a percentage of China-mentioning speeches that year?"
+        )
+        cooc = an.great_power_cooccurrence(df)
+        if not cooc.empty:
+            fig = px.line(
+                cooc, x="year", y="cooccurrence_pct",
+                color="power", markers=True,
+                labels={"cooccurrence_pct": "% of China speeches also mentioning",
+                        "year": "Year"},
+                color_discrete_map={"US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
+                                     "EU": HCSS_ACCENT, "NATO": "#1A1A1A"},
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Top speakers

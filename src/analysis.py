@@ -79,6 +79,33 @@ def china_trend(df: pd.DataFrame, freq: str = "Q") -> pd.DataFrame:
     return result
 
 
+# ── 1b. China trend per party over time ───────────────────────────────────────
+
+def china_trend_by_party(df: pd.DataFrame, freq: str = "Y", top_n: int = 8) -> pd.DataFrame:
+    """
+    China-mention speeches per party per period.
+    Returns long-format [period, party, china_speeches], limited to top_n
+    parties by total China-speech count for chart legibility.
+    """
+    df = parties_only(df)
+    df = df[df["china_mentions"] > 0].copy()
+    if df.empty:
+        return df
+    df["period"] = df["date"].dt.to_period(freq)
+
+    top_parties = df.groupby("party").size().nlargest(top_n).index.tolist()
+    df = df[df["party"].isin(top_parties)]
+
+    result = (
+        df.groupby(["period", "party"])
+        .size()
+        .rename("china_speeches")
+        .reset_index()
+    )
+    result["period"] = result["period"].astype(str)
+    return result
+
+
 # ── 2. Party frequency — who talks about China most? ──────────────────────────
 
 def china_by_party(df: pd.DataFrame, top_n: int = 15) -> pd.DataFrame:
@@ -198,7 +225,92 @@ def sentiment_by_bloc(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-# ── 7. Topic context of China mentions ────────────────────────────────────────
+# ── 6b. Great power combinations + sentiment ──────────────────────────────────
+
+def china_power_combinations(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For each China-mentioning speech, classify which other great powers are
+    co-mentioned in the same speech, then aggregate by combination.
+
+    Returns: DataFrame with [combination, n_speeches, mean_china_sentiment, mean_sentiment_avg].
+    Combinations are sorted by frequency. Rare ones (<10 speeches) are dropped
+    to keep the chart readable.
+    """
+    df = df[df["china_mentions"] > 0].copy()
+    if df.empty:
+        return df
+
+    def label(row):
+        powers = []
+        if row["mentions_us"] > 0: powers.append("US")
+        if row["mentions_russia"] > 0: powers.append("Russia")
+        if row["mentions_eu"] > 0: powers.append("EU")
+        if row["mentions_nato"] > 0: powers.append("NATO")
+        if not powers:
+            return "China alone"
+        return "China + " + " + ".join(powers)
+
+    df["combination"] = df.apply(label, axis=1)
+
+    result = (
+        df.groupby("combination")
+        .agg(
+            n_speeches=("speech_id", "count"),
+            mean_china_sentiment=("china_sentiment_avg", "mean"),
+            mean_sentiment_avg=("sentiment_avg", "mean"),
+        )
+        .reset_index()
+        .round(3)
+    )
+    result = result[result["n_speeches"] >= 10]
+    return result.sort_values("n_speeches", ascending=False).reset_index(drop=True)
+
+
+# ── 7. Parliament seat chart data ─────────────────────────────────────────────
+
+# 2017 Tweede Kamer composition (covers most of our 2015–2022 data window)
+TK_SEATS_2017 = {
+    "VVD": 33, "PVV": 20, "CDA": 19, "D66": 19, "GroenLinks": 14,
+    "SP": 14, "PvdA": 9, "ChristenUnie": 5, "PvdD": 5, "50PLUS": 4,
+    "SGP": 3, "DENK": 3, "FvD": 2,
+}
+# 2019 Eerste Kamer composition (75 seats)
+EK_SEATS_2019 = {
+    "FvD": 12, "VVD": 12, "CDA": 9, "D66": 7, "PVV": 5, "GroenLinks": 8,
+    "SP": 4, "PvdA": 6, "ChristenUnie": 4, "PvdD": 3, "50PLUS": 2,
+    "SGP": 2, "OSF": 1,
+}
+
+
+def seat_chart_data(df: pd.DataFrame, chamber: str = "tweedekamer") -> pd.DataFrame:
+    """
+    For each parliamentary seat, return the China-mention rate of its party.
+    Returns: DataFrame with [seat_idx, party, rate, china_speeches, total_speeches].
+    Uses a fixed reference composition (2017 TK / 2019 EK).
+    """
+    seat_map = TK_SEATS_2017 if chamber == "tweedekamer" else EK_SEATS_2019
+
+    by_party = china_by_party(df, top_n=100).set_index("party")
+
+    rows = []
+    seat_idx = 0
+    for party, n_seats in seat_map.items():
+        rate = float(by_party["rate"].get(party, 0.0))
+        china = int(by_party["china_speeches"].get(party, 0))
+        total = int(by_party["total_speeches"].get(party, 0))
+        for _ in range(n_seats):
+            rows.append({
+                "seat_idx": seat_idx,
+                "party": party,
+                "rate": rate,
+                "china_speeches": china,
+                "total_speeches": total,
+            })
+            seat_idx += 1
+    return pd.DataFrame(rows)
+
+
+# ── 8. Topic context of China mentions ────────────────────────────────────────
 
 def china_topic_distribution(df: pd.DataFrame) -> pd.DataFrame:
     """
