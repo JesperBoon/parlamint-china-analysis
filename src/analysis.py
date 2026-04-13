@@ -81,29 +81,75 @@ def china_trend(df: pd.DataFrame, freq: str = "Q") -> pd.DataFrame:
 
 # ── 1b. China trend per party over time ───────────────────────────────────────
 
-def china_trend_by_party(df: pd.DataFrame, freq: str = "Y", top_n: int = 8) -> pd.DataFrame:
+def china_trend_by_party(
+    df: pd.DataFrame, freq: str = "Y", top_n: int = 8, parties=None
+) -> pd.DataFrame:
     """
     China-mention speeches per party per period.
-    Returns long-format [period, party, china_speeches], limited to top_n
-    parties by total China-speech count for chart legibility.
+    Returns long-format [period, party, china_speeches, total_speeches, pct].
+    If parties is None, auto-selects top_n by total China-speech count.
     """
-    df = parties_only(df)
-    df = df[df["china_mentions"] > 0].copy()
-    if df.empty:
-        return df
+    df = parties_only(df).copy()
     df["period"] = df["date"].dt.to_period(freq)
 
-    top_parties = df.groupby("party").size().nlargest(top_n).index.tolist()
-    df = df[df["party"].isin(top_parties)]
+    # Total speeches per party per period (needed for pct)
+    total_pp = (
+        df.groupby(["period", "party"])
+        .size()
+        .rename("total_speeches")
+        .reset_index()
+    )
+
+    china = df[df["china_mentions"] > 0].copy()
+    if china.empty:
+        return china
+
+    if parties is not None:
+        top_parties = parties
+    else:
+        top_parties = china.groupby("party").size().nlargest(top_n).index.tolist()
+    china = china[china["party"].isin(top_parties)]
 
     result = (
-        df.groupby(["period", "party"])
+        china.groupby(["period", "party"])
         .size()
         .rename("china_speeches")
         .reset_index()
     )
+    result = result.merge(total_pp, on=["period", "party"], how="left")
+    result["pct"] = (result["china_speeches"] / result["total_speeches"] * 100).round(2)
     result["period"] = result["period"].astype(str)
     return result
+
+
+def party_sentiment_trend(
+    df: pd.DataFrame, parties=None, top_n: int = 8
+) -> pd.DataFrame:
+    """
+    Mean china_sentiment_avg per party per year, long format for trend line charts.
+    If parties is None, uses top_n parties by scored China speeches.
+    Returns: [year, party, avg_china_sentiment, n_speeches]
+    """
+    df = parties_only(df)
+    df = df[df["china_sentiment_avg"].notna() & (df["china_mentions"] > 0)].copy()
+    if df.empty:
+        return df
+
+    if parties is not None:
+        df = df[df["party"].isin(parties)]
+    else:
+        top = df.groupby("party")["speech_id"].count().nlargest(top_n).index
+        df = df[df["party"].isin(top)]
+
+    return (
+        df.groupby(["year", "party"])
+        .agg(
+            avg_china_sentiment=("china_sentiment_avg", "mean"),
+            n_speeches=("speech_id", "count"),
+        )
+        .round(3)
+        .reset_index()
+    )
 
 
 # ── 2. Party frequency — who talks about China most? ──────────────────────────

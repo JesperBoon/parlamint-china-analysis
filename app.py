@@ -112,8 +112,7 @@ with st.sidebar:
         "Navigation",
         [
             "Overview",
-            "Trend over time",
-            "Party comparison",
+            "Party & Sentiment Trends",
             "Sentiment analysis",
             "Great power context",
             "Top speakers",
@@ -316,110 +315,152 @@ if page == "Overview":
     )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE: Trend over time
+# PAGE: Party & Sentiment Trends (replaces Trend over time + Party comparison)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Trend over time":
-    st.title("China mentions over time")
+elif page == "Party & Sentiment Trends":
+    st.title("Party & Sentiment Trends")
+    st.markdown(
+        "How has each party's *tone* toward China shifted over time — and who drives the debate? "
+        "Select parties to compare across all views."
+    )
 
-    freq = st.radio("Granularity", ["Year", "Quarter", "Month"], horizontal=True)
-    freq_map = {"Year": "Y", "Quarter": "Q", "Month": "M"}
-    trend = an.china_trend(df, freq=freq_map[freq])
+    # ── Party selector (shared across all tabs) ────────────────────────────────
+    all_party_opts = sorted(an.parties_only(df)["party"].dropna().unique().tolist())
+    top8 = an.china_by_party(df, top_n=8)["party"].tolist()
+    default_sel = [p for p in top8 if p in all_party_opts]
 
-    tab1, tab2, tab3 = st.tabs(["Absolute count", "As % of all speeches", "By party"])
+    selected_parties = st.multiselect(
+        "Select parties",
+        all_party_opts,
+        default=default_sel,
+        help="Applies to all tabs. Select 2–10 parties for best legibility.",
+    )
+    if not selected_parties:
+        st.info("Select at least one party above.")
+        st.stop()
 
-    with tab1:
-        fig = px.line(
-            trend, x="period", y="china_speeches",
-            markers=True,
-            labels={"period": "", "china_speeches": "Speeches mentioning China"},
-            color_discrete_sequence=[HCSS_PRIMARY],
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    color_map = {p: SPECTRUM_PARTY_COLORS.get(p, SPEC_DEFAULT) for p in selected_parties}
 
-    with tab2:
-        fig = px.line(
-            trend, x="period", y="pct",
-            markers=True,
-            labels={"period": "", "pct": "% of all speeches"},
-            color_discrete_sequence=[HCSS_ACCENT],
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    tab_sent, tab_vol, tab_rates, tab_seats = st.tabs([
+        "Sentiment over time", "Mention volume", "Party rates", "Parliament seats",
+    ])
 
-    with tab3:
+    # ── Tab 1: Sentiment over time ─────────────────────────────────────────────
+    with tab_sent:
+        st.subheader("Average China sentiment per party per year")
         st.caption(
-            "When did China become a topic *for each party*? "
-            "Showing the 8 parties with the most China-mentioning speeches."
+            "Computed only from sentences that explicitly mention China (scale 0–5, below 2.5 = negative). "
+            "Only party-years with at least 1 scored speech are shown."
         )
-        by_party_trend = an.china_trend_by_party(df, freq=freq_map[freq])
-        if by_party_trend.empty:
-            st.warning("No China-mentioning speeches under current filters.")
+        sent_trend = an.party_sentiment_trend(df, parties=selected_parties)
+        if sent_trend.empty:
+            st.warning("No sentiment data for the selected parties under current filters.")
         else:
             fig = px.line(
-                by_party_trend, x="period", y="china_speeches",
+                sent_trend, x="year", y="avg_china_sentiment",
                 color="party", markers=True,
-                labels={"period": "", "china_speeches": "Speeches mentioning China",
-                        "party": "Party"},
-                color_discrete_sequence=HCSS_PALETTE + ["#5DADE2", "#229954"],
+                color_discrete_map=color_map,
+                labels={
+                    "avg_china_sentiment": "Avg. China sentiment (0–5)",
+                    "year": "", "party": "Party", "n_speeches": "Scored speeches",
+                },
+                hover_data={"n_speeches": True, "avg_china_sentiment": ":.2f"},
+            )
+            fig.add_hline(y=2.5, line_dash="dot", line_color="lightgrey",
+                          annotation_text="Neutral")
+            fig.update_layout(
+                yaxis=dict(range=[0, 5]),
+                height=460,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                            xanchor="center", x=0.5),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(
+                "A downward trend = increasingly negative framing of China. "
+                "The 2019–2020 dip across most parties aligns with Xinjiang coverage and the Huawei 5G debate."
+            )
+
+    # ── Tab 2: Mention volume ──────────────────────────────────────────────────
+    with tab_vol:
+        st.subheader("How often does each party mention China?")
+        col_mode, col_gran = st.columns(2)
+        with col_mode:
+            y_mode = st.radio(
+                "Y-axis",
+                ["Mention count", "Share of party speeches (%)"],
+                horizontal=True, key="vol_ymode",
+            )
+        with col_gran:
+            freq_label = st.radio("Granularity", ["Year", "Quarter"], horizontal=True, key="vol_gran")
+        freq_map_vol = {"Year": "Y", "Quarter": "Q"}
+        vol_trend = an.china_trend_by_party(
+            df, freq=freq_map_vol[freq_label], parties=selected_parties
+        )
+        if vol_trend.empty:
+            st.warning("No data for selected parties.")
+        else:
+            y_col = "china_speeches" if y_mode == "Mention count" else "pct"
+            y_label = (
+                "Speeches mentioning China"
+                if y_mode == "Mention count"
+                else "% of party's speeches mentioning China"
+            )
+            fig = px.line(
+                vol_trend, x="period", y=y_col,
+                color="party", markers=True,
+                color_discrete_map=color_map,
+                labels={"period": "", "party": "Party", y_col: y_label},
+            )
+            fig.update_layout(
+                height=440,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                            xanchor="center", x=0.5),
             )
             st.plotly_chart(fig, use_container_width=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE: Party comparison
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "Party comparison":
-    st.title("Which parties talk about China?")
+    # ── Tab 3: Party rates ─────────────────────────────────────────────────────
+    with tab_rates:
+        st.subheader("Normalised China mention rates — all parties")
+        st.caption(
+            "% of each party's own speeches that mention China — corrects for parties that simply speak more."
+        )
+        by_party = an.china_by_party(df, top_n=50)
+        sent_per_party = (
+            df[df["china_sentiment_avg"].notna() & (df["china_mentions"] > 0)]
+            .groupby("party")["china_sentiment_avg"].mean().round(3)
+            .rename("avg_china_sentiment")
+        )
+        by_party = by_party.merge(sent_per_party, on="party", how="left")
+        by_party["sentiment_label"] = by_party["avg_china_sentiment"].apply(score_to_label)
 
-    by_party = an.china_by_party(df, top_n=50)
-
-    # Enrich with avg China sentiment per party for hover
-    sent_per_party = (
-        df[df["china_sentiment_avg"].notna() & (df["china_mentions"] > 0)]
-        .groupby("party")["china_sentiment_avg"].mean().round(3)
-        .rename("avg_china_sentiment")
-    )
-    by_party = by_party.merge(sent_per_party, on="party", how="left")
-    by_party["sentiment_label"] = by_party["avg_china_sentiment"].apply(score_to_label)
-
-    tab2, tab3 = st.tabs(["Normalised rate (%)", "Parliament seats"])
-    st.caption(
-        "**Normalised rate** = % of that party's *own* speeches that mention China. "
-        "It corrects for the fact that some parties simply speak more often than others."
-    )
-
-    with tab2:
         sent_view = st.radio(
             "Sort by",
             ["China mention rate", "Sentiment (most negative first)"],
-            horizontal=True, key="party_sort",
+            horizontal=True, key="party_sort_unified",
         )
         if sent_view == "Sentiment (most negative first)":
             plot_df = by_party.dropna(subset=["avg_china_sentiment"]).sort_values("avg_china_sentiment")
             st.caption(
-                "⚠️ In this view, **left = most negative sentiment toward China**, "
-                "right = most positive. This is *not* a political left/right ordering."
+                "⚠️ **Left = most negative sentiment toward China**, right = most positive. "
+                "This is *not* a political left/right ordering."
             )
             fig = px.bar(
-                plot_df,
-                x="party", y="avg_china_sentiment",
+                plot_df, x="party", y="avg_china_sentiment",
                 color="avg_china_sentiment",
-                color_continuous_scale="RdYlGn",
-                range_color=[0, 5],
+                color_continuous_scale="RdYlGn", range_color=[0, 5],
                 labels={"avg_china_sentiment": "Avg. China sentiment (0–5)", "party": ""},
                 hover_data={"rate": ":.1f", "china_speeches": True, "sentiment_label": True},
                 text="sentiment_label",
             )
-            fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
-                          annotation_text="Neutral")
+            fig.add_hline(y=2.5, line_dash="dot", line_color="grey", annotation_text="Neutral")
             fig.update_traces(textposition="outside", textfont=dict(size=9))
             fig.update_layout(showlegend=False, coloraxis_showscale=False)
         else:
             plot_df = by_party.sort_values("rate")
             fig = px.bar(
-                plot_df,
-                x="rate", y="party", orientation="h",
+                plot_df, x="rate", y="party", orientation="h",
                 color="avg_china_sentiment",
-                color_continuous_scale="RdYlGn",
-                range_color=[0, 5],
+                color_continuous_scale="RdYlGn", range_color=[0, 5],
                 labels={"rate": "% of party's speeches mentioning China",
                         "party": "", "avg_china_sentiment": "Avg. sentiment"},
                 hover_data={"china_speeches": True, "total_speeches": True,
@@ -428,7 +469,8 @@ elif page == "Party comparison":
             fig.update_layout(coloraxis_colorbar=dict(title="Sentiment"))
         st.plotly_chart(fig, use_container_width=True)
 
-    with tab3:
+    # ── Tab 4: Parliament seats ────────────────────────────────────────────────
+    with tab_seats:
         seat_chamber = st.radio(
             "Chamber",
             ["Tweede Kamer", "Eerste Kamer"],
@@ -452,6 +494,7 @@ elif page == "Party comparison":
                 "Select a party to inspect",
                 options=["— select a party —"] + all_parties,
                 index=0,
+                key="seat_party_sel",
             )
 
             n_rows = 6 if chamber_key == "tweedekamer" else 4
@@ -544,8 +587,7 @@ elif page == "Party comparison":
                     st.metric("China mention rate", f"{rate_val:.1f}%")
                     if summary["mean_china_sentiment"] is not None:
                         sentiment_val = summary["mean_china_sentiment"]
-                        # 0=very negative, 5=very positive
-                        label = "🟢 Negative" if sentiment_val < 2.5 else "🟡 Neutral" if sentiment_val < 3.3 else "🟠 Positive"
+                        label = "Negative" if sentiment_val < 2.5 else "Neutral" if sentiment_val < 3.3 else "Positive"
                         st.metric("Avg China sentiment", f"{sentiment_val:.2f} ({label})")
                     else:
                         st.caption("No sentiment data for this party.")
