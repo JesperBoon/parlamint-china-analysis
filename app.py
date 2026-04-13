@@ -33,6 +33,34 @@ def horseshoe_coords(n_seats: int, n_rows: int = 5):
             coords.append((r * math.cos(angle), r * math.sin(angle)))
     return coords
 
+
+def horseshoe_coords_grouped(party_sizes: list, n_rows: int = 6):
+    """
+    Compute horseshoe (x, y) where each party occupies a contiguous arc segment.
+    Seats fill column-by-column within each party's angular block, so the party
+    appears as a solid cluster — like the real Dutch parliament.
+    party_sizes: seat counts in left-to-right display order.
+    Returns flat list of (x, y), grouped by party.
+    """
+    radii = [1.0 + i * 0.20 for i in range(n_rows)]
+    total = sum(party_sizes)
+    coords = []
+    angle_cursor = 0.0
+    for n_p in party_sizes:
+        if n_p == 0:
+            continue
+        width = (n_p / total) * math.pi
+        n_cols = max(1, math.ceil(n_p / n_rows))
+        for i in range(n_p):
+            col = i // n_rows
+            row = i % n_rows
+            angle = angle_cursor + (col + 0.5) / n_cols * width
+            actual_angle = math.pi - angle   # 0=left arc, π=right arc
+            r = radii[min(row, len(radii) - 1)]
+            coords.append((r * math.cos(actual_angle), r * math.sin(actual_angle)))
+        angle_cursor += width
+    return coords
+
 SPECTRUM_COLORS = {
     "Left": "#D62828",    # Red
     "Center": "#F77F00",  # Orange
@@ -198,11 +226,19 @@ if page == "Overview":
     st.divider()
     st.subheader("Parliament sits from left to right. But does China?")
     st.caption(
-        "Each dot = one parliamentary seat, coloured by party. "
-        "Click the button to re-order seats by average China sentiment instead of political position."
+        "Each dot = one parliamentary seat, coloured by party — parties clustered as in the real Tweede Kamer. "
+        "Click **Re-seat by China stance** to reorder parties by their average sentiment toward China."
     )
 
-    seats_hook = an.seat_chart_data(df, chamber="tweedekamer")
+    hook_year = st.select_slider(
+        "Year",
+        options=sorted(df["year"].dropna().unique().tolist()),
+        value=int(df["year"].max()),
+        key="hook_year",
+    )
+    df_hook = df[df["year"] == hook_year]
+    seats_hook = an.seat_chart_data(df_hook, chamber="tweedekamer")
+
     if not seats_hook.empty:
         SPEC_ORDER_MAP = {
             "SP": 0, "PvdA": 1, "GroenLinks": 2, "PvdD": 3, "DENK": 4,
@@ -211,111 +247,126 @@ if page == "Overview":
             "CDA": 11, "VVD": 12, "PVV": 13, "FvD": 14,
             "SGP": 15, "JA21": 16, "50PLUS": 17, "BBB": 18,
         }
-        n_hook = len(seats_hook)
+
+        # Per-party summary (one row per party)
+        party_info = (
+            seats_hook.drop_duplicates("party")
+            .set_index("party")[["rate", "mean_china_sentiment"]]
+        )
+
+        def _build_frame(party_order):
+            """Given an ordered list of party names, return (x, y, colors, hovertexts)."""
+            sizes = [(seats_hook["party"] == p).sum() for p in party_order]
+            coords = horseshoe_coords_grouped(sizes, n_rows=6)
+            xs, ys, cs, hts = [], [], [], []
+            i = 0
+            for p, n in zip(party_order, sizes):
+                color = SPECTRUM_PARTY_COLORS.get(p, SPEC_DEFAULT)
+                rate = party_info["rate"].get(p, 0.0)
+                snt = party_info["mean_china_sentiment"].get(p, float("nan"))
+                snt_str = f"{snt:.2f}" if not pd.isna(snt) else "no data"
+                for _ in range(n):
+                    xs.append(coords[i][0])
+                    ys.append(coords[i][1])
+                    cs.append(color)
+                    hts.append(
+                        f"<b>{p}</b><br>"
+                        f"Mention rate: {rate:.1f}%<br>"
+                        f"Avg China sentiment: {snt_str}"
+                    )
+                    i += 1
+            return xs, ys, cs, hts
 
         # Frame 1: political spectrum order
-        s_pol = seats_hook.copy()
-        s_pol["_ord"] = s_pol["party"].map(SPEC_ORDER_MAP).fillna(50)
-        s_pol = s_pol.sort_values(["_ord", "party"]).reset_index(drop=True)
-        c1_h = horseshoe_coords(n_hook, n_rows=6)
-        x1h = [c[0] for c in c1_h]
-        y1h = [c[1] for c in c1_h]
+        parties_pol = sorted(
+            seats_hook["party"].unique(),
+            key=lambda p: SPEC_ORDER_MAP.get(p, 50),
+        )
+        x1h, y1h, c1h, ht1h = _build_frame(parties_pol)
 
-        # Frame 2: China sentiment order (most negative left)
-        s_snt = seats_hook.copy()
-        s_snt["_ord"] = s_snt["party"].map(SPEC_ORDER_MAP).fillna(50)
-        s_snt["_snt"] = s_snt["mean_china_sentiment"].fillna(2.5)
-        s_snt = s_snt.sort_values(["_snt", "_ord"]).reset_index(drop=True)
-        c2_h = horseshoe_coords(n_hook, n_rows=6)
-        x2h = [c[0] for c in c2_h]
-        y2h = [c[1] for c in c2_h]
-
-        col_pol = [SPECTRUM_PARTY_COLORS.get(p, SPEC_DEFAULT) for p in s_pol["party"]]
-        col_snt = [SPECTRUM_PARTY_COLORS.get(p, SPEC_DEFAULT) for p in s_snt["party"]]
-
-        ht_pol = [f"<b>{p}</b><br>China mention rate: {r:.1f}%"
-                  for p, r in zip(s_pol["party"], s_pol["rate"])]
-        ht_snt = [
-            f"<b>{p}</b><br>Avg China sentiment: {s:.2f}" if not pd.isna(s)
-            else f"<b>{p}</b><br>No sentiment data"
-            for p, s in zip(s_snt["party"], s_snt["mean_china_sentiment"])
-        ]
+        # Frame 2: China sentiment order (most negative → left)
+        parties_snt = sorted(
+            seats_hook["party"].unique(),
+            key=lambda p: (
+                party_info["mean_china_sentiment"].get(p, 2.5)
+                if not pd.isna(party_info["mean_china_sentiment"].get(p, float("nan")))
+                else 2.5
+            ),
+        )
+        x2h, y2h, c2h, ht2h = _build_frame(parties_snt)
 
         ann_pol = [dict(
             text="← Left wing  ·  Political spectrum  ·  Right wing →",
-            x=0.5, y=0.02, xref="paper", yref="paper",
-            showarrow=False, font=dict(size=11, color="#999"), xanchor="center",
+            x=0.5, y=0.01, xref="paper", yref="paper",
+            showarrow=False, font=dict(size=11, color="#888"), xanchor="center",
         )]
         ann_snt = [dict(
             text="← Most negative on China  ·  Stance toward China  ·  Most positive →",
-            x=0.5, y=0.02, xref="paper", yref="paper",
-            showarrow=False, font=dict(size=11, color="#999"), xanchor="center",
+            x=0.5, y=0.01, xref="paper", yref="paper",
+            showarrow=False, font=dict(size=11, color="#888"), xanchor="center",
         )]
 
         fig_hook = go.Figure(
             data=[go.Scatter(
                 x=x1h, y=y1h, mode="markers",
-                marker=dict(size=11, color=col_pol,
-                            line=dict(width=0.5, color="white")),
-                hovertext=ht_pol,
+                marker=dict(size=12, color=c1h, line=dict(width=0.8, color="white")),
+                hovertext=ht1h,
                 hovertemplate="%{hovertext}<extra></extra>",
                 showlegend=False,
             )],
             frames=[
                 go.Frame(
+                    name="sentiment",
                     data=[go.Scatter(
                         x=x2h, y=y2h, mode="markers",
-                        marker=dict(size=11, color=col_snt,
-                                    line=dict(width=0.5, color="white")),
-                        hovertext=ht_snt,
+                        marker=dict(size=12, color=c2h, line=dict(width=0.8, color="white")),
+                        hovertext=ht2h,
                         hovertemplate="%{hovertext}<extra></extra>",
                         showlegend=False,
                     )],
                     layout=go.Layout(annotations=ann_snt),
-                    name="sentiment",
                 ),
                 go.Frame(
+                    name="political",
                     data=[go.Scatter(
                         x=x1h, y=y1h, mode="markers",
-                        marker=dict(size=11, color=col_pol,
-                                    line=dict(width=0.5, color="white")),
-                        hovertext=ht_pol,
+                        marker=dict(size=12, color=c1h, line=dict(width=0.8, color="white")),
+                        hovertext=ht1h,
                         hovertemplate="%{hovertext}<extra></extra>",
                         showlegend=False,
                     )],
                     layout=go.Layout(annotations=ann_pol),
-                    name="political",
                 ),
             ],
             layout=go.Layout(
-                xaxis=dict(visible=False, range=[-1.65, 1.65]),
+                xaxis=dict(visible=False, range=[-1.75, 1.75]),
                 yaxis=dict(visible=False, scaleanchor="x", scaleratio=1,
-                           range=[-0.15, 1.65]),
+                           range=[-0.12, 1.72]),
                 plot_bgcolor="white",
-                height=460,
-                margin=dict(t=10, b=80, l=10, r=10),
+                height=480,
+                margin=dict(t=10, b=90, l=10, r=10),
                 annotations=ann_pol,
                 updatemenus=[dict(
                     type="buttons",
                     showactive=True,
-                    y=0, x=0.5, xanchor="center", yanchor="top",
+                    y=-0.02, x=0.5, xanchor="center", yanchor="top",
                     direction="left",
-                    pad=dict(t=10),
+                    pad=dict(t=8),
                     buttons=[
                         dict(
                             label="Re-seat by China stance →",
                             method="animate",
                             args=[["sentiment"], dict(
-                                frame=dict(duration=1000, redraw=True),
-                                transition=dict(duration=800, easing="cubic-in-out"),
+                                frame=dict(duration=900, redraw=True),
+                                transition=dict(duration=700, easing="cubic-in-out"),
                             )],
                         ),
                         dict(
                             label="← Political order",
                             method="animate",
                             args=[["political"], dict(
-                                frame=dict(duration=1000, redraw=True),
-                                transition=dict(duration=800, easing="cubic-in-out"),
+                                frame=dict(duration=900, redraw=True),
+                                transition=dict(duration=700, easing="cubic-in-out"),
                             )],
                         ),
                     ],
@@ -324,9 +375,9 @@ if page == "Overview":
         )
         st.plotly_chart(fig_hook, use_container_width=True)
         st.caption(
-            "Colours = party. In the re-seated view, dots cluster by China stance. "
-            "Notice that hawkishness on China does *not* follow the left/right divide: "
-            "PVV (far right) and GroenLinks (far left) both land on the critical end."
+            f"Tweede Kamer composition · {hook_year} · parties in political order left→right. "
+            "After re-seating: hawkishness on China cuts across the left/right divide — "
+            "PVV (far right) and SP/GroenLinks (far left) often cluster together on the critical end."
         )
 
     st.divider()
