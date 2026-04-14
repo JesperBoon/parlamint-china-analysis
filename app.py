@@ -91,64 +91,84 @@ HCSS_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"
 POLICY_EVENTS = [
     {"date": "2015-10-01", "year_frac": 2015.75, "period_Y": "2015", "period_Q": "2015Q4",
      "label": "COSCO acquires Rotterdam Euromax terminal stake",
-     "category": "Trade & Economy", "short": "COSCO Rotterdam"},
+     "category": "Trade & Economy", "short": "COSCO Rotterdam",
+     "description": "Chinese state shipping company COSCO acquired a minority stake in the Rotterdam Euromax terminal, raising early concerns about Chinese investment in Dutch strategic infrastructure."},
     {"date": "2016-06-01", "year_frac": 2016.42, "period_Y": "2016", "period_Q": "2016Q2",
      "label": "First Dutch parliamentary motion on Uyghurs",
-     "category": "Human Rights", "short": "1st Uyghur motion"},
+     "category": "Human Rights", "short": "1st Uyghur motion",
+     "description": "The first Dutch parliamentary motion specifically addressing the treatment of Uyghurs in Xinjiang — a precursor to the more forceful resolutions that would follow from 2019 onward."},
     {"date": "2017-05-01", "year_frac": 2017.33, "period_Y": "2017", "period_Q": "2017Q2",
      "label": "Belt and Road Forum — NL participation debate",
-     "category": "Diplomacy", "short": "BRI Forum"},
+     "category": "Diplomacy", "short": "BRI Forum",
+     "description": "China's Belt and Road Initiative global summit in Beijing. Dutch participation triggered parliamentary debate on whether engagement with BRI constituted endorsement of Chinese geopolitical expansion."},
     {"date": "2018-07-01", "year_frac": 2018.50, "period_Y": "2018", "period_Q": "2018Q3",
      "label": "US–China trade war escalates (tariff round 2)",
-     "category": "Trade & Economy", "short": "Trade war"},
+     "category": "Trade & Economy", "short": "Trade war",
+     "description": "The US escalated its trade conflict with China with a second round of tariffs. Dutch parliament debated the implications for Netherlands–China trade and the risk of being caught between the two economic superpowers."},
     {"date": "2018-11-01", "year_frac": 2018.83, "period_Y": "2018", "period_Q": "2018Q4",
      "label": "Dutch government starts Huawei 5G security review",
-     "category": "Technology", "short": "Huawei review"},
+     "category": "Technology", "short": "Huawei review",
+     "description": "Following US warnings, the Dutch government opened a formal security review into whether Huawei equipment posed an espionage risk if deployed in the Netherlands' 5G network infrastructure."},
     {"date": "2019-05-01", "year_frac": 2019.33, "period_Y": "2019", "period_Q": "2019Q2",
      "label": "US blacklists Huawei — NL suppliers affected",
-     "category": "Technology", "short": "Huawei blacklist"},
+     "category": "Technology", "short": "Huawei blacklist",
+     "description": "The US placed Huawei on its entity list, barring American firms from supplying components. Dutch chip equipment firm ASML and other suppliers were immediately affected, forcing a Dutch policy response."},
     {"date": "2019-10-01", "year_frac": 2019.75, "period_Y": "2019", "period_Q": "2019Q4",
      "label": "Dutch parliament passes Xinjiang motion",
-     "category": "Human Rights", "short": "Xinjiang motion"},
+     "category": "Human Rights", "short": "Xinjiang motion",
+     "description": "Dutch parliament passed a formal motion condemning the mass detention of Uyghurs in Xinjiang — one of the strongest official statements by any EU member state at that point."},
     {"date": "2020-01-23", "year_frac": 2020.06, "period_Y": "2020", "period_Q": "2020Q1",
      "label": "Wuhan lockdown — COVID-19 enters Dutch debate",
-     "category": "Security", "short": "COVID / Wuhan"},
+     "category": "Security", "short": "COVID / Wuhan",
+     "description": "China's lockdown of Wuhan brought COVID-19 into Dutch parliamentary debate, initially framing China as the origin of the outbreak and raising questions about Chinese transparency and WHO cooperation."},
     {"date": "2020-03-28", "year_frac": 2020.24, "period_Y": "2020", "period_Q": "2020Q1",
      "label": "NL recalls defective Chinese face masks",
-     "category": "Trade & Economy", "short": "Mask recall"},
+     "category": "Trade & Economy", "short": "Mask recall",
+     "description": "The Netherlands recalled a shipment of 600,000 Chinese-supplied face masks after they failed safety standards — a flashpoint in the broader debate about Dutch dependency on Chinese supply chains."},
     {"date": "2020-07-09", "year_frac": 2020.52, "period_Y": "2020", "period_Q": "2020Q3",
      "label": "NL ends extradition treaty with Hong Kong",
-     "category": "Diplomacy", "short": "HK extradition ends"},
+     "category": "Diplomacy", "short": "HK extradition ends",
+     "description": "Following China's imposition of the National Security Law on Hong Kong, the Netherlands suspended its extradition treaty with Hong Kong — one of the most concrete Dutch diplomatic responses to Chinese policy."},
     {"date": "2020-10-15", "year_frac": 2020.79, "period_Y": "2020", "period_Q": "2020Q4",
      "label": "ASML export licence to China restricted (US pressure)",
-     "category": "Technology", "short": "ASML export limit"},
+     "category": "Technology", "short": "ASML export limit",
+     "description": "Under US pressure, the Dutch government declined to renew ASML's export licence for its most advanced EUV lithography machines to Chinese customers — restricting Chinese access to the world's most critical chip-making equipment."},
     {"date": "2021-02-25", "year_frac": 2021.15, "period_Y": "2021", "period_Q": "2021Q1",
      "label": "Dutch parliament adopts Uyghur 'genocide' motion",
-     "category": "Human Rights", "short": "Genocide motion"},
+     "category": "Human Rights", "short": "Genocide motion",
+     "description": "Dutch parliament passed a motion labelling Chinese policies in Xinjiang as genocide — the first EU parliament to do so, and a direct contradiction of the government's own initial position."},
     {"date": "2021-03-22", "year_frac": 2021.22, "period_Y": "2021", "period_Q": "2021Q1",
      "label": "EU–China mutual sanctions (MEPs, scholars)",
-     "category": "Diplomacy", "short": "EU–China sanctions"},
+     "category": "Diplomacy", "short": "EU–China sanctions",
+     "description": "The EU imposed targeted sanctions on Chinese officials over Xinjiang abuses. China retaliated with counter-sanctions on European MEPs and scholars, effectively blocking ratification of the EU–China investment deal."},
     {"date": "2021-05-01", "year_frac": 2021.33, "period_Y": "2021", "period_Q": "2021Q2",
      "label": "KPN chooses Ericsson over Huawei for 5G core",
-     "category": "Technology", "short": "KPN Huawei out"},
+     "category": "Technology", "short": "KPN Huawei out",
+     "description": "Dutch telecom giant KPN selected Ericsson over Huawei for its 5G core network — a decision made under government pressure, seen as the definitive Dutch exit from Huawei's 5G ecosystem."},
     {"date": "2021-09-15", "year_frac": 2021.70, "period_Y": "2021", "period_Q": "2021Q3",
      "label": "Dutch parliament Taiwan solidarity motion",
-     "category": "Security", "short": "Taiwan motion"},
+     "category": "Security", "short": "Taiwan motion",
+     "description": "Dutch parliament passed a motion expressing solidarity with Taiwan and calling for EU support for Taiwanese participation in international organisations, drawing a sharp diplomatic protest from Beijing."},
     {"date": "2021-11-01", "year_frac": 2021.83, "period_Y": "2021", "period_Q": "2021Q4",
      "label": "ASML banned from shipping EUV machines to China",
-     "category": "Technology", "short": "ASML EUV ban"},
+     "category": "Technology", "short": "ASML EUV ban",
+     "description": "The Dutch government permanently refused to renew ASML's EUV export licence to China following sustained US pressure, placing the world's most advanced semiconductor equipment effectively beyond Chinese reach."},
     {"date": "2022-01-01", "year_frac": 2022.00, "period_Y": "2022", "period_Q": "2022Q1",
      "label": "NL tightens FDI screening — China acquisitions scrutinised",
-     "category": "Trade & Economy", "short": "FDI screening"},
+     "category": "Trade & Economy", "short": "FDI screening",
+     "description": "The Netherlands introduced tightened foreign direct investment screening rules, allowing the government to block or review Chinese acquisitions in sensitive sectors including semiconductors, ports, and telecoms."},
     {"date": "2022-02-24", "year_frac": 2022.15, "period_Y": "2022", "period_Q": "2022Q1",
      "label": "Russia invades Ukraine — China neutrality debated",
-     "category": "Security", "short": "Russia–Ukraine / China"},
+     "category": "Security", "short": "Russia–Ukraine / China",
+     "description": "Russia's invasion of Ukraine brought China's position into Dutch parliamentary debate. China's refusal to condemn the invasion and its 'no-limits partnership' with Russia raised new concerns about Chinese complicity in European instability."},
     {"date": "2022-06-01", "year_frac": 2022.42, "period_Y": "2022", "period_Q": "2022Q2",
      "label": "Dutch parliament debates semiconductor export controls",
-     "category": "Technology", "short": "Chip export debate"},
+     "category": "Technology", "short": "Chip export debate",
+     "description": "Dutch parliament debated further restrictions on semiconductor equipment exports to China, reflecting growing awareness that ASML's deep-UV machines — still exportable — remained a critical chokepoint in China's chip ambitions."},
     {"date": "2022-09-01", "year_frac": 2022.67, "period_Y": "2022", "period_Q": "2022Q3",
      "label": "Cabinet announces further ASML export restrictions",
-     "category": "Technology", "short": "ASML further limits"},
+     "category": "Technology", "short": "ASML further limits",
+     "description": "The Dutch cabinet announced additional export restrictions on ASML deep-UV lithography machines, extending the EUV precedent to a broader range of chip equipment — a major escalation in technology decoupling from China."},
 ]
 
 POLICY_EVENT_COLORS = {
@@ -163,8 +183,12 @@ POLICY_EVENT_COLORS = {
 def add_policy_lines(fig, x_type: str = "year", events=None, selected=None):
     """
     Inject vertical marker lines for policy events onto a Plotly figure.
-    x_type: 'year' (int axis), 'period_Y' (string yearly), 'period_Q' (string quarterly).
+    x_type: 'year' (int/float axis), 'period_Y' (string yearly), 'period_Q' (string quarterly).
     selected: list of event short labels to show; None = show all.
+
+    Note: add_vline() crashes on categorical/string x-axes (Plotly tries to do
+    arithmetic on string x-values internally). For string x-types we use
+    add_shape() + add_annotation() instead, which handles category labels correctly.
     """
     if events is None:
         events = POLICY_EVENTS
@@ -173,14 +197,38 @@ def add_policy_lines(fig, x_type: str = "year", events=None, selected=None):
             continue
         x_val = ev.get(x_type, ev["year_frac"])
         color = POLICY_EVENT_COLORS.get(ev["category"], "#888888")
-        fig.add_vline(
-            x=x_val,
-            line_dash="dot", line_width=1.2, line_color=color,
-            annotation_text=ev["short"],
-            annotation_position="top left",
-            annotation_font=dict(size=8, color=color),
-            annotation_textangle=-90,
-        )
+
+        if isinstance(x_val, str):
+            # Categorical (string period) axis — add_vline fails here.
+            # Use add_shape + add_annotation which handle category labels correctly.
+            fig.add_shape(
+                type="line",
+                x0=x_val, x1=x_val,
+                y0=0, y1=1,
+                xref="x", yref="paper",
+                line=dict(dash="dot", width=1.2, color=color),
+            )
+            fig.add_annotation(
+                x=x_val,
+                y=1,
+                xref="x", yref="paper",
+                text=ev["short"],
+                showarrow=False,
+                textangle=-90,
+                font=dict(size=8, color=color),
+                yanchor="top",
+                xanchor="right",
+            )
+        else:
+            # Numeric axis — add_vline works fine.
+            fig.add_vline(
+                x=x_val,
+                line_dash="dot", line_width=1.2, line_color=color,
+                annotation_text=ev["short"],
+                annotation_position="top left",
+                annotation_font=dict(size=8, color=color),
+                annotation_textangle=-90,
+            )
     return fig
 
 # ── Sentiment label mapping (shorthand → plain English) ───────────────────────
@@ -316,17 +364,163 @@ if page == "Overview":
 
     st.markdown(
         "Between 2014 and 2022, China went from a barely-mentioned trading partner "
-        "to one of the most contentious topics in Dutch politics. "
-        "But does China criticism follow the usual left/right divide?"
+        "to a contentious topic in Dutch politics. This dashboard maps the dynamics "
+        "within the Eerste Kamer and Tweede Kamer that drive decisions and stances toward China."
     )
     st.caption("Based on 593,961 speeches from ParlaMint-NL · Use the sidebar to explore each dimension in depth.")
 
-    # ── Hook: animated seat reveal ─────────────────────────────────────────────
+    # ── KPIs ──────────────────────────────────────────────────────────────────
+    china_df = df[df["china_mentions"] > 0]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total speeches analysed", f"{len(df):,}")
+    c2.metric("Mention China", f"{len(china_df):,}", f"{len(china_df)/len(df)*100:.1f}% of all")
+    c3.metric("Unique speakers", china_df["speaker_name"].nunique())
+    c4.metric("Peak year", "2020", f"{china_df[china_df['year']==2020].shape[0]} speeches")
+
     st.divider()
-    st.subheader("Parliament sits from left to right. But does China?")
-    st.caption(
+
+    # ── Chapter 1: The rise ────────────────────────────────────────────────────
+    st.subheader("1 · A topic that wouldn't stop growing")
+    st.markdown("China becomes more and more of a topic in Dutch parliament — with an obvious peak during COVID.")
+    st.info(
+        "In 2014, China appeared in just **13 speeches** across the entire parliament. "
+        "By 2020, that number had risen to **569** — a 44× increase in six years. "
+        "The jump wasn't gradual: it accelerated sharply after 2018, driven by Huawei's "
+        "5G expansion, the Uyghur detention camps, and growing concern about economic dependency. "
+        "Its peak was around the COVID crisis."
+    )
+
+    trend = an.china_trend(df, freq="Y")
+    fig = px.bar(
+        trend, x="period", y="china_speeches",
+        labels={"period": "", "china_speeches": "Speeches mentioning China"},
+        color_discrete_sequence=[HCSS_PRIMARY],
+    )
+    fig.update_layout(showlegend=False, margin=dict(t=40, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Chapter 2: The tone ────────────────────────────────────────────────────
+    st.subheader("2 · The tone is overwhelmingly negative — and getting more so")
+    st.markdown(
+        "Sentiment scores are computed only from sentences that explicitly mention China "
+        "(scale 0–5, where 2.5 is neutral). Across all parties, the mean sits well below "
+        "neutral — and drops further after 2019. The quotes below are representative."
+    )
+
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        st.markdown(
+            "> *\"There are even pictures of the abuses in China taken from satellites. "
+            "There's no lack of evidence.\"*"
+        )
+        st.caption("Sjoerd Sjoerdsma (D66) · February 2021 · on Xinjiang")
+    with col_q2:
+        st.markdown(
+            "> *\"The entire population of the Netherlands has to do with arbitrary "
+            "detention, abuse and indoctrination in political re-education camps.\"*"
+        )
+        st.caption("Tunahan Kuzu (DENK) · September 2018 · on Uyghurs")
+
+    bloc_df = an.sentiment_by_bloc(df)
+    if not bloc_df.empty:
+        fig = px.line(
+            bloc_df, x="year", y="mean_china_sentiment",
+            color="bloc", markers=True,
+            color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
+            labels={"mean_china_sentiment": "Mean China sentiment (0–5)", "year": ""},
+        )
+        fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
+                      annotation_text="Neutral")
+        fig.update_layout(margin=dict(t=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Chapter 3: Is China uniquely controversial? ───────────────────────────
+    st.subheader("3 · Is China uniquely controversial — or is this just geopolitics?")
+    st.markdown(
+        "Dutch parliament is negative about China. But are they equally negative about "
+        "Russia and the US? The bars below show average China-specific sentiment depending "
+        "on which other power is mentioned in the same speech. "
+        "**Speeches combining China with Russia are the most negative of all.**"
+    )
+
+    proxy_df = an.power_sentiment_proxy(df)
+    if not proxy_df.empty:
+        POWER_COLORS = {
+            "China (overall)": HCSS_PRIMARY,
+            "China + US":      "#5A8FD6",
+            "China + Russia":  "#C0392B",
+            "China + EU":      "#F39C12",
+            "China + NATO":    "#1A1A1A",
+        }
+        proxy_df = proxy_df.sort_values("avg_sentiment")
+        proxy_df["color"] = proxy_df["power"].map(POWER_COLORS)
+        proxy_df["label"] = proxy_df["avg_sentiment"].apply(score_to_label)
+
+        col_bar, col_numbers = st.columns([3, 1])
+        with col_bar:
+            fig = px.bar(
+                proxy_df,
+                x="avg_sentiment", y="power", orientation="h",
+                color="power",
+                color_discrete_map=POWER_COLORS,
+                labels={"avg_sentiment": "Avg. China sentiment (0–5)", "power": ""},
+                hover_data={"n_speeches": True, "label": True, "avg_sentiment": ":.2f"},
+                text="label",
+            )
+            fig.add_vline(x=2.5, line_dash="dot", line_color="grey",
+                          annotation_text="Neutral", annotation_position="top")
+            fig.update_traces(textposition="outside", textfont=dict(size=10))
+            fig.update_layout(
+                showlegend=False,
+                xaxis=dict(range=[0, 4]),
+                margin=dict(t=10, b=10),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        with col_numbers:
+            st.markdown("**Avg. sentiment**")
+            for _, row in proxy_df.sort_values("avg_sentiment").iterrows():
+                st.markdown(
+                    f"**{row['power']}**  \n"
+                    f"`{row['avg_sentiment']:.2f}` · {row['n_speeches']:,} speeches"
+                )
+
+    st.divider()
+
+    # ── Chapter 4: Geopolitical framing ───────────────────────────────────────
+    st.subheader("4 · In what geopolitical contexts is China mostly discussed?")
+    st.markdown(
+        "When Dutch politicians mention China, they most often also mention the **EU** — "
+        "reflecting debates about European trade policy and strategic autonomy. "
+        "Speeches that combine China with **Russia** are the most negative of all, "
+        "suggesting a distinct geopolitical threat frame."
+    )
+
+    combos = an.china_power_combinations(df)
+    if not combos.empty:
+        fig = px.bar(
+            combos.sort_values("n_speeches").tail(8),
+            x="n_speeches", y="combination", orientation="h",
+            color="mean_china_sentiment",
+            color_continuous_scale="RdYlGn",
+            range_color=[0, 5],
+            labels={"n_speeches": "Number of speeches",
+                    "combination": "",
+                    "mean_china_sentiment": "Avg China sentiment"},
+        )
+        fig.update_layout(margin=dict(t=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # ── Parliament seat chart: hawkishness vs political order ─────────────────
+    st.subheader("What if we ordered Dutch parties from most negative to most positive attitude toward China?")
+    st.markdown(
         "Each dot = one parliamentary seat, coloured by party — parties clustered as in the real Tweede Kamer. "
-        "Click **Re-seat by China stance** to reorder parties by their average sentiment toward China."
+        "Press **Re-seat by China stance** to reorder parties by their average sentiment toward China."
     )
 
     hook_year = st.select_slider(
@@ -347,7 +541,6 @@ if page == "Overview":
             "SGP": 15, "JA21": 16, "50PLUS": 17, "BBB": 18,
         }
 
-        # Per-party summary (one row per party)
         party_info = (
             seats_hook.drop_duplicates("party")
             .set_index("party")[["rate", "mean_china_sentiment"]]
@@ -376,14 +569,12 @@ if page == "Overview":
                     i += 1
             return xs, ys, cs, hts
 
-        # Frame 1: political spectrum order
         parties_pol = sorted(
             seats_hook["party"].unique(),
             key=lambda p: SPEC_ORDER_MAP.get(p, 50),
         )
         x1h, y1h, c1h, ht1h = _build_frame(parties_pol)
 
-        # Frame 2: China sentiment order (most negative → left)
         parties_snt = sorted(
             seats_hook["party"].unique(),
             key=lambda p: (
@@ -472,187 +663,12 @@ if page == "Overview":
                 )],
             ),
         )
+        st.caption(f"Tweede Kamer composition · {hook_year} · parties in political order left→right")
         st.plotly_chart(fig_hook, use_container_width=True)
         st.caption(
-            f"Tweede Kamer composition · {hook_year} · parties in political order left→right. "
-            "After re-seating: hawkishness on China cuts across the left/right divide — "
-            "PVV (far right) and SP/GroenLinks (far left) often cluster together on the critical end."
+            "Hawkishness on China cuts across the left/right divide — "
+            "PVV (far right) and SP/GroenLinks (far left) cluster together on the critical end."
         )
-
-    st.divider()
-
-    # ── KPIs ──────────────────────────────────────────────────────────────────
-    china_df = df[df["china_mentions"] > 0]
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total speeches analysed", f"{len(df):,}")
-    c2.metric("Mention China", f"{len(china_df):,}", f"{len(china_df)/len(df)*100:.1f}% of all")
-    c3.metric("Unique speakers", china_df["speaker_name"].nunique())
-    c4.metric("Peak year", "2020", f"{china_df[china_df['year']==2020].shape[0]} speeches")
-
-    st.divider()
-
-    # ── Chapter 1: The rise ────────────────────────────────────────────────────
-    st.subheader("1 · A topic that wouldn't stop growing")
-    st.markdown(
-        "In 2014, China appeared in just **13 speeches** across the entire parliament. "
-        "By 2020, that number had risen to **569** — a 44× increase in six years. "
-        "The jump wasn't gradual: it accelerated sharply after 2018, driven by Huawei's "
-        "5G expansion, the Uyghur detention camps, and growing concern about economic dependency."
-    )
-
-    trend = an.china_trend(df, freq="Y")
-    fig = px.bar(
-        trend, x="period", y="china_speeches",
-        labels={"period": "", "china_speeches": "Speeches mentioning China"},
-        color_discrete_sequence=[HCSS_PRIMARY],
-    )
-    fig.update_layout(showlegend=False, margin=dict(t=40, b=10))
-    add_policy_lines(fig, x_type="period_Y")
-    st.plotly_chart(fig, use_container_width=True)
-    with st.expander("Policy milestones shown"):
-        for cat, color in POLICY_EVENT_COLORS.items():
-            evs = [e["short"] for e in POLICY_EVENTS if e["category"] == cat]
-            if evs:
-                st.markdown(
-                    f"<span style='color:{color}'>●</span> **{cat}:** {', '.join(evs)}",
-                    unsafe_allow_html=True,
-                )
-
-    st.divider()
-
-    # ── Chapter 2: Who speaks ──────────────────────────────────────────────────
-    st.subheader("2 · Not all parties talk about China equally")
-    st.markdown(
-        "When normalised for speaking frequency, **opposition parties** — particularly "
-        "PVV, D66, and GroenLinks — consistently rank highest. Governing parties tend "
-        "to be more measured. The chart below shows China speeches as a share of each "
-        "party's total output."
-    )
-
-    by_party = an.china_by_party(df, top_n=12)
-    fig = px.bar(
-        by_party.sort_values("rate"),
-        x="rate", y="party", orientation="h",
-        labels={"rate": "% of party's speeches mentioning China", "party": ""},
-        color_discrete_sequence=[HCSS_ACCENT],
-    )
-    fig.update_layout(margin=dict(t=10))
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-
-    # ── Chapter 3: The tone ────────────────────────────────────────────────────
-    st.subheader("3 · The tone is overwhelmingly negative — and getting more so")
-    st.markdown(
-        "Sentiment scores are computed only from sentences that explicitly mention China "
-        "(scale 0–5, where 2.5 is neutral). Across all parties, the mean sits well below "
-        "neutral — and drops further after 2019. The quotes below are representative."
-    )
-
-    col_q1, col_q2 = st.columns(2)
-    with col_q1:
-        st.markdown(
-            "> *\"There are even pictures of the abuses in China taken from satellites. "
-            "There's no lack of evidence.\"*"
-        )
-        st.caption("Sjoerd Sjoerdsma (D66) · February 2021 · on Xinjiang")
-    with col_q2:
-        st.markdown(
-            "> *\"The entire population of the Netherlands has to do with arbitrary "
-            "detention, abuse and indoctrination in political re-education camps.\"*"
-        )
-        st.caption("Tunahan Kuzu (DENK) · September 2018 · on Uyghurs")
-
-    bloc_df = an.sentiment_by_bloc(df)
-    if not bloc_df.empty:
-        fig = px.line(
-            bloc_df, x="year", y="mean_china_sentiment",
-            color="bloc", markers=True,
-            color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
-            labels={"mean_china_sentiment": "Mean China sentiment (0–5)", "year": ""},
-        )
-        fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
-                      annotation_text="Neutral")
-        fig.update_layout(margin=dict(t=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-
-    # ── Chapter 4: Is China uniquely controversial? ───────────────────────────
-    st.subheader("4 · Is China uniquely controversial — or is this just geopolitics?")
-    st.markdown(
-        "Dutch parliament is negative about China. But are they equally negative about "
-        "Russia and the US? The bars below show average China-specific sentiment depending "
-        "on which other power is mentioned in the same speech. "
-        "**Speeches combining China with Russia are the most negative of all.**"
-    )
-
-    proxy_df = an.power_sentiment_proxy(df)
-    if not proxy_df.empty:
-        POWER_COLORS = {
-            "China (overall)": HCSS_PRIMARY,
-            "China + US":      "#5A8FD6",
-            "China + Russia":  "#C0392B",
-            "China + EU":      "#F39C12",
-            "China + NATO":    "#1A1A1A",
-        }
-        proxy_df = proxy_df.sort_values("avg_sentiment")
-        proxy_df["color"] = proxy_df["power"].map(POWER_COLORS)
-        proxy_df["label"] = proxy_df["avg_sentiment"].apply(score_to_label)
-
-        col_bar, col_numbers = st.columns([3, 1])
-        with col_bar:
-            fig = px.bar(
-                proxy_df,
-                x="avg_sentiment", y="power", orientation="h",
-                color="power",
-                color_discrete_map=POWER_COLORS,
-                labels={"avg_sentiment": "Avg. China sentiment (0–5)", "power": ""},
-                hover_data={"n_speeches": True, "label": True, "avg_sentiment": ":.2f"},
-                text="label",
-            )
-            fig.add_vline(x=2.5, line_dash="dot", line_color="grey",
-                          annotation_text="Neutral", annotation_position="top")
-            fig.update_traces(textposition="outside", textfont=dict(size=10))
-            fig.update_layout(
-                showlegend=False,
-                xaxis=dict(range=[0, 4]),
-                margin=dict(t=10, b=10),
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        with col_numbers:
-            st.markdown("**Avg. sentiment**")
-            for _, row in proxy_df.sort_values("avg_sentiment").iterrows():
-                st.markdown(
-                    f"**{row['power']}**  \n"
-                    f"`{row['avg_sentiment']:.2f}` · {row['n_speeches']:,} speeches"
-                )
-
-    st.divider()
-
-    # ── Chapter 5: Geopolitical framing ───────────────────────────────────────
-    st.subheader("5 · China is rarely discussed alone")
-    st.markdown(
-        "When Dutch politicians mention China, they most often also mention the **EU** — "
-        "reflecting debates about European trade policy and strategic autonomy. "
-        "Speeches that combine China with **Russia** are the most negative of all, "
-        "suggesting a distinct geopolitical threat frame."
-    )
-
-    combos = an.china_power_combinations(df)
-    if not combos.empty:
-        fig = px.bar(
-            combos.sort_values("n_speeches").tail(8),
-            x="n_speeches", y="combination", orientation="h",
-            color="mean_china_sentiment",
-            color_continuous_scale="RdYlGn",
-            range_color=[0, 5],
-            labels={"n_speeches": "Number of speeches",
-                    "combination": "",
-                    "mean_china_sentiment": "Avg China sentiment"},
-        )
-        fig.update_layout(margin=dict(t=10))
-        st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     st.markdown(
@@ -778,6 +794,12 @@ elif page == "Party & Sentiment Trends":
         st.subheader("Normalised China mention rates — all parties")
         st.caption(
             "% of each party's own speeches that mention China — corrects for parties that simply speak more."
+        )
+        st.markdown(
+            "Normalisation means we divide each party's China mentions by their total number of speeches. "
+            "This way, a small party with 10 China mentions out of 50 speeches (20%) ranks higher than a "
+            "large party with 50 China mentions out of 1,000 speeches (5%) — even though the large party "
+            "mentioned China more in absolute terms."
         )
         by_party = an.china_by_party(df, top_n=50)
         sent_per_party = (
@@ -1310,10 +1332,16 @@ elif page == "Top speakers":
 
     with tab_bubble:
         st.caption(
-            "**X axis** = share of this person's *total* speeches that mention China. "
+            "**X axis** = share of this person's total speeches that mention China. "
             "**Y axis** = average China-specific sentiment (below 2.5 = negative). "
-            "**Bubble size** = total number of China mentions. "
-            "**Colour** = party."
+            "**Bubble size** = influence score (China mentions × role weight: "
+            "Minister/Secretary of State = ×3, Chair = ×1.5, others = ×1). "
+            "Labels shown for above-median influence only. **Colour** = party."
+        )
+        st.markdown(
+            "Bubble size reflects institutional importance: it combines how often a speaker mentions China "
+            "with the decision-making power of their role — giving a sense of who is both close to the topic "
+            "and positioned to act on it."
         )
         bubble_df = speakers.dropna(subset=["avg_china_sentiment", "china_pct"])
         if not bubble_df.empty:
@@ -1358,11 +1386,6 @@ elif page == "Top speakers":
                           annotation_text="Avg. China focus")
             fig.update_traces(textposition="top center", textfont=dict(size=9))
             fig.update_layout(height=580)
-            st.caption(
-                "**Bubble size** = influence score (China mentions × role weight: "
-                "Minister/Sec. of State = ×3, Chair = ×1.5, others = ×1). "
-                "Labels shown for above-median influence only."
-            )
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("No sentiment data available for current filters.")
@@ -1465,10 +1488,10 @@ elif page == "Explore speeches":
 elif page == "Policy & Geopolitics":
     st.title("Policy & Geopolitical Topics")
     st.markdown(
-        "This is where the *story* lives. Below are the policy domains and geopolitical "
-        "themes that co-occur with China in Dutch parliamentary debate — broken down by "
-        "sentiment and over time. The AI analysis panel at the bottom uses Claude to "
-        "translate the patterns into plain-language insights."
+        "This is where the story lives. The most powerful tool here is the AI narrative — "
+        "it lets you zoom in on the institutional context within any timeframe of your choice. "
+        "Below are the broader policy domains and geopolitical themes that co-occur with China "
+        "in Dutch parliamentary debate."
     )
 
     # ── Topic definitions ──────────────────────────────────────────────────────
@@ -1631,6 +1654,7 @@ elif page == "Policy & Geopolitics":
                         f"**{sel_event['label']}**  \n"
                         f"*{sel_event['date']} · {sel_event['category']}*"
                     )
+                    st.caption(sel_event.get("description", ""))
             else:
                 with col_t:
                     ai_topic = st.selectbox("Topic", list(POLICY_TOPICS.keys()), key="ai_topic")
