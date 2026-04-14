@@ -1,19 +1,17 @@
 # ParlaMint China Analysis Tool
 
-**HCSS Datalab Assignment** — An interactive tool for analysing how China is discussed in Dutch parliamentary debates (2014–2022).
-
-Built on the [ParlaMint-NL](https://www.clarin.eu/parlamint) corpus: 593,961 speeches, linguistically annotated at sentence level.
+**HCSS Datalab Assignment** — For this assignment I built a dashboard that maps how China became one of the most contested topics in Dutch politics — from a barely-mentioned trading partner in 2014 to a recurring subject of debate on human rights, semiconductors, and geopolitical positioning by 2022. The data is the full [ParlaMint-NL](https://www.clarin.eu/parlamint) corpus: 593,961 parliamentary speeches, annotated at sentence level.
 
 ---
 
 ## What it does
 
-- **Trend analysis** — how China mentions have grown over time, by year/quarter/month and per party
-- **Party comparison** — which parties discuss China most, normalised for speaking frequency, visualised on a parliamentary seat chart
-- **Sentiment analysis** — animated year-by-year view of each party's tone toward China (China-specific sentiment, not overall speech mood)
-- **Great power context** — in what combinations is China mentioned with the US, Russia, EU, and NATO — and how does that shift the tone?
-- **Top speakers** — bubble chart of individual speakers by China-focus and sentiment, with per-speaker speech drill-down
-- **Explore speeches** — full-text search across all China-mentioning speeches
+- **How fast did China grow as a topic?** Trend analysis by year, quarter, and party
+- **Who drives the debate?** Party comparison normalised for speaking frequency, shown on a parliamentary seat chart
+- **What's the tone?** China-specific sentiment per party over time — filtered to sentences that actually mention China, not just overall speech mood
+- **Is China discussed alone or in context?** Co-occurrence with the US, Russia, EU, and NATO — and how that shifts the tone
+- **Who are the key voices?** Bubble chart of individual speakers by China-focus and institutional influence, with per-speaker speech drill-down
+- **What did they actually say?** Full-text search across all China-mentioning speeches
 
 ---
 
