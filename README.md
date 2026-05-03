@@ -1,5 +1,7 @@
 # ParlaMint China Analysis Tool
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://parlamint-china-analysis-kup8fb8edwyk3m8qhpmpez.streamlit.app)
+
 A dashboard that maps how China became one of the most contested topics in Dutch politics — from a barely-mentioned trading partner in 2014 to a recurring subject of debate on human rights, semiconductors, and geopolitical positioning by 2022. The data is the full [ParlaMint-NL](https://www.clarin.eu/parlamint) corpus: 593,961 parliamentary speeches, annotated at sentence level.
 
 ---
