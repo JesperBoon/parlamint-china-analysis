@@ -350,12 +350,7 @@ if page != "Overview":
 # PAGE: Overview
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "Overview":
-    col_logo, col_title = st.columns([1, 8])
-    with col_logo:
-        if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, use_container_width=True)
-    with col_title:
-        st.title("How China is discussed in the Dutch Parliament")
+    st.title("How China is discussed in the Dutch Parliament")
 
     st.markdown(
         "Between 2014 and 2022, China went from a barely-mentioned trading partner "
