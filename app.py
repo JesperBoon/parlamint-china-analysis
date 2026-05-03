@@ -1,6 +1,6 @@
 """
 app.py — ParlaMint China Analysis Tool
-HCSS Datalab | Dutch Parliamentary Debates on China (2015–2022)
+Dutch Parliamentary Debates on China (2015–2022)
 
 Run with: streamlit run app.py
 """
@@ -80,9 +80,9 @@ SPECTRUM_PARTY_COLORS = {
 }
 SPEC_DEFAULT = "#AAAAAA"
 
-HCSS_PRIMARY = "#003082"
-HCSS_ACCENT = "#0066CC"
-HCSS_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"]
+PRIMARY_COLOR = "#003082"
+ACCENT_COLOR = "#0066CC"
+COLOR_PALETTE = ["#003082", "#0066CC", "#5A8FD6", "#1A1A1A", "#7F8C8D", "#A6BDDB"]
 
 # ── Policy event timeline ──────────────────────────────────────────────────────
 # 20 key Dutch–China policy moments, 2015–2022.
@@ -265,20 +265,22 @@ st.set_page_config(
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "processed", "speeches.parquet")
 
 # ── Data loading (cached) ──────────────────────────────────────────────────────
-@st.cache_data(show_spinner="Loading dataset...")
+@st.cache_resource(show_spinner="Loading dataset...")
 def load_data():
+    if not os.path.exists(DATA_PATH):
+        os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
+        from huggingface_hub import hf_hub_download
+        hf_hub_download(
+            repo_id="ELFrijol/parlamint-china-nl",
+            filename="speeches.parquet",
+            repo_type="dataset",
+            local_dir=os.path.dirname(DATA_PATH),
+        )
     return an.load(DATA_PATH)
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "hcss_logo.png")
-
 with st.sidebar:
-    if os.path.exists(LOGO_PATH):
-        # narrow column wrapper → browser-native scaling = crisp on retina
-        col_a, col_b, col_c = st.columns([1, 2, 1])
-        with col_b:
-            st.image(LOGO_PATH, use_container_width=True)
-    st.title("HCSS Tool")
+    st.title("China in Dutch Parliament")
     st.caption("How China is discussed in the Dutch Parliament")
     st.caption("ParlaMint-NL | 2015–2022")
     st.divider()
@@ -306,13 +308,6 @@ with st.sidebar:
     )
 
 # ── Load data ──────────────────────────────────────────────────────────────────
-if not os.path.exists(DATA_PATH):
-    st.error(
-        f"Dataset not found at `{DATA_PATH}`. "
-        "Run `python3 scripts/02_parse_to_df.py` first."
-    )
-    st.stop()
-
 df = load_data()
 
 # ── Shared filters (shown on all pages except Overview) ───────────────────────
@@ -360,7 +355,7 @@ if page == "Overview":
         if os.path.exists(LOGO_PATH):
             st.image(LOGO_PATH, use_container_width=True)
     with col_title:
-        st.title("HCSS Tool — How China is discussed in the Dutch Parliament")
+        st.title("How China is discussed in the Dutch Parliament")
 
     st.markdown(
         "Between 2014 and 2022, China went from a barely-mentioned trading partner "
@@ -394,7 +389,7 @@ if page == "Overview":
     fig = px.bar(
         trend, x="period", y="china_speeches",
         labels={"period": "", "china_speeches": "Speeches mentioning China"},
-        color_discrete_sequence=[HCSS_PRIMARY],
+        color_discrete_sequence=[PRIMARY_COLOR],
     )
     fig.update_layout(showlegend=False, margin=dict(t=40, b=10))
     st.plotly_chart(fig, use_container_width=True)
@@ -428,7 +423,7 @@ if page == "Overview":
         fig = px.line(
             bloc_df, x="year", y="mean_china_sentiment",
             color="bloc", markers=True,
-            color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": HCSS_PRIMARY},
+            color_discrete_map={"Left": "#C0392B", "Center": "#7F8C8D", "Right": PRIMARY_COLOR},
             labels={"mean_china_sentiment": "Mean China sentiment (0–5)", "year": ""},
         )
         fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
@@ -450,7 +445,7 @@ if page == "Overview":
     proxy_df = an.power_sentiment_proxy(df)
     if not proxy_df.empty:
         POWER_COLORS = {
-            "China (overall)": HCSS_PRIMARY,
+            "China (overall)": PRIMARY_COLOR,
             "China + US":      "#5A8FD6",
             "China + Russia":  "#C0392B",
             "China + EU":      "#F39C12",
@@ -1111,7 +1106,7 @@ elif page == "Sentiment analysis":
                     line_df, x="year", y="sentiment",
                     markers=True,
                     labels={"sentiment": "Avg. China sentiment (0–5)", "year": "Year"},
-                    color_discrete_sequence=[HCSS_PRIMARY],
+                    color_discrete_sequence=[PRIMARY_COLOR],
                     hover_data={"label": True},
                 )
                 fig.add_hline(y=2.5, line_dash="dot", line_color="grey",
@@ -1154,7 +1149,7 @@ elif page == "Sentiment analysis":
             st.warning("Not enough data under current filters.")
         else:
             REF_COLORS = {
-                "China (overall)": HCSS_PRIMARY,
+                "China (overall)": PRIMARY_COLOR,
                 "China + US":      "#5A8FD6",
                 "China + Russia":  "#C0392B",
                 "China + EU":      "#F39C12",
@@ -1185,7 +1180,7 @@ elif page == "Sentiment analysis":
         ptrend_ref = an.power_sentiment_trend(df)
         if not ptrend_ref.empty:
             TREND_COLORS = {
-                "China (overall)": HCSS_PRIMARY,
+                "China (overall)": PRIMARY_COLOR,
                 "China + US":      "#5A8FD6",
                 "China + Russia":  "#C0392B",
                 "China + EU":      "#F39C12",
@@ -1272,8 +1267,8 @@ elif page == "Great power context":
             ),
         )
         POWER_COLOR_MAP = {
-            "US": HCSS_PRIMARY, "RUSSIA": "#C0392B",
-            "EU": HCSS_ACCENT, "NATO": "#1A1A1A",
+            "US": PRIMARY_COLOR, "RUSSIA": "#C0392B",
+            "EU": ACCENT_COLOR, "NATO": "#1A1A1A",
         }
         show_events_gp = st.checkbox("Show policy milestones", value=True, key="ev_gp")
         if gp_ymode == "Co-occurrence frequency (%)":
@@ -1308,8 +1303,8 @@ elif page == "Great power context":
                     labels={"avg_sentiment": "Avg. China sentiment (0–5)",
                             "year": "Year", "power_short": "Also mentions"},
                     color_discrete_map={
-                        "US": HCSS_PRIMARY, "Russia": "#C0392B",
-                        "EU": HCSS_ACCENT, "NATO": "#1A1A1A",
+                        "US": PRIMARY_COLOR, "Russia": "#C0392B",
+                        "EU": ACCENT_COLOR, "NATO": "#1A1A1A",
                     },
                     hover_data={"n_speeches": True},
                 )
@@ -1563,7 +1558,7 @@ elif page == "Policy & Geopolitics":
                 topic_df, x="year", y="n_speeches", color="topic",
                 markers=True,
                 labels={"n_speeches": "Speeches", "year": "Year", "topic": "Topic"},
-                color_discrete_sequence=HCSS_PALETTE + ["#C0392B", "#27AE60"],
+                color_discrete_sequence=COLOR_PALETTE + ["#C0392B", "#27AE60"],
             )
             if show_events_pol:
                 add_policy_lines(fig, x_type="year_frac")

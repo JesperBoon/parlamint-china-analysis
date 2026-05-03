@@ -1,6 +1,6 @@
 # ParlaMint China Analysis Tool
 
-**HCSS Datalab Assignment** — For this assignment I built a dashboard that maps how China became one of the most contested topics in Dutch politics — from a barely-mentioned trading partner in 2014 to a recurring subject of debate on human rights, semiconductors, and geopolitical positioning by 2022. The data is the full [ParlaMint-NL](https://www.clarin.eu/parlamint) corpus: 593,961 parliamentary speeches, annotated at sentence level.
+A dashboard that maps how China became one of the most contested topics in Dutch politics — from a barely-mentioned trading partner in 2014 to a recurring subject of debate on human rights, semiconductors, and geopolitical positioning by 2022. The data is the full [ParlaMint-NL](https://www.clarin.eu/parlamint) corpus: 593,961 parliamentary speeches, annotated at sentence level.
 
 ---
 
@@ -20,10 +20,17 @@
 **Requirements:** Python 3.10+
 
 ```bash
-pip install pandas pyarrow streamlit plotly
+pip install pandas pyarrow streamlit plotly anthropic huggingface_hub
 ```
 
-**Data** (not included in repo — 13 GB):
+**Run the app:**
+```bash
+streamlit run app.py
+```
+
+Open `http://localhost:8501` in your browser. The dataset (~186 MB) is downloaded automatically from HuggingFace on first run.
+
+**Optional — build the dataset yourself** from the raw ParlaMint corpus (13 GB):
 
 1. Download `ParlaMint-NL-en.ana.tgz` from the [ParlaMint repository](https://www.clarin.eu/parlamint) and place it in `data/raw/`
 2. Extract China-related debate files:
@@ -34,14 +41,6 @@ pip install pandas pyarrow streamlit plotly
    ```bash
    python3 scripts/02_parse_to_df.py
    ```
-   This produces `data/processed/speeches.parquet` (~656 MB, 593,961 rows).
-
-**Run the app:**
-```bash
-streamlit run app.py
-```
-
-Open `http://localhost:8501` in your browser.
 
 ---
 
@@ -58,9 +57,8 @@ parlamint-china/
 │   ├── dry_run_lemmas.py     # Lemma hit-count preview (pre-parse check)
 │   └── test_parser.py        # Unit tests for parser logic
 ├── assets/
-│   └── hcss_logo.png
 ├── .streamlit/
-│   └── config.toml           # HCSS house style theme
+│   └── config.toml           # Theme configuration
 └── data/                     # Gitignored — generate locally
     ├── raw/                  # Place source .tgz here
     ├── subset/               # Extracted China-related XML files
@@ -90,6 +88,8 @@ parlamint-china/
 | Visualisation | Plotly Express + Graph Objects |
 | Interface | Streamlit |
 | Storage | Apache Parquet |
+| AI narrative analysis | Claude (Anthropic) |
+| Dataset hosting | HuggingFace Datasets |
 
 ---
 

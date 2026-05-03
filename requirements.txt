@@ -3,3 +3,4 @@ pyarrow
 streamlit
 plotly
 anthropic
+huggingface_hub
